@@ -1,0 +1,87 @@
+{
+  "name": "vscode-dotnet-adapter",
+  "displayName": ".Net Core Test Explorer",
+  "description": "Run your dotnet core cs tests in the Sidebar of Visual Studio Code",
+  "icon": "img/icon.png",
+  "author": "PK",
+  "publisher": "wghats",
+  "version": "0.8.0",
+  "license": "MIT",
+  "homepage": "https://github.com/Derivitec/vscode-dotnet-adapter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Derivitec/vscode-dotnet-adapter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Derivitec/vscode-dotnet-adapter/issues"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "Nunit",
+    "xUnit",
+    "C#",
+    "test"
+  ],
+  "main": "out/main.js",
+  "scripts": {
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "clean": "rimraf out *.vsix",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "rebuild": "npm run clean && npm run build",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "tslib": "^1.9.3",
+    "vscode-test-adapter-api": "^1.1.0",
+    "vscode-test-adapter-util": "^0.5.1",
+    "xmldom": "^0.1.31"
+  },
+  "devDependencies": {
+    "typescript": "^3.0.3",
+    "vsce": "^1.47.0",
+    "vscode": "^1.1.21"
+  },
+  "engines": {
+    "vscode": "^1.23.0"
+  },
+  "extensionDependencies": [
+    "hbenl.vscode-test-explorer"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": ".Net Core Test Explorer",
+      "properties": {
+        "dotnetCoreExplorer.skippattern": {
+          "description": "pattern to skip assemblies",
+          "type": "string",
+          "scope": "resource",
+          "default": "nunit\\..*\\.dll|xunit\\..*\\.dll"
+        },
+        "dotnetCoreExplorer.searchpatterns": {
+          "description": "array of your test files or directory (relative to the workspace folder)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/bin/**/*.dll"
+          ],
+          "scope": "resource"
+        },
+        "dotnetCoreExplorer.logpanel": {
+          "description": "write diagnotic logs to an output panel",
+          "type": "boolean",
+          "scope": "resource"
+        }
+      }
+    }
+  }
+}

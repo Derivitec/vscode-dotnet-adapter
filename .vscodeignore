@@ -1,0 +1,17 @@
+src/**
+**/*.map
+package-lock.json
+tsconfig.json
+.vscode/**
+.gitignore
+.nuget/**
+obj/**
+packages/**
+bin/**
+!bin/Release/*
+tsconfig.json
+packages.config
+Makefile
+Makefile.1
+.vscodeignore
+Bugs.md
