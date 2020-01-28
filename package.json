@@ -72,7 +72,9 @@
             "type": "string"
           },
           "default": [
-            "**/bin/**/*.dll"
+            "**/bin/x64/**/*UnitTests.dll",
+            "**/bin/x64/**/*IntegrationTests.dll",
+            "**/bin/x64/**/*AcceptanceTests.dll"
           ],
           "scope": "resource"
         },

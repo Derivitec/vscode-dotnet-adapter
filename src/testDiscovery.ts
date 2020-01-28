@@ -57,20 +57,21 @@ export class TestDiscovery {
 
             await this.StopLoading();
 
-            var searchpatterns = this.configManager.SearchPatterns();
+            var searchPatterns = this.configManager.SearchPatterns();
 
-            var files = await this.LoadFiles(searchpatterns[0]);
-
-            for (var file of files) {
-                try {
-                    this.log.info(`file: ${file} (loading)`);
-                    await this.SetTestSuiteInfo(file);
-                    this.log.info(`file: ${file} (load complete)`);
-                } catch (e) {
-                    this.log.error(e);
-                    reject(e);
-                }
-            };
+			for (var searchPattern of searchPatterns) {
+				var files = await this.LoadFiles(searchPattern);
+				for (var file of files) {
+					try {
+						this.log.info(`file: ${file} (loading)`);
+						await this.SetTestSuiteInfo(file);
+						this.log.info(`file: ${file} (load complete)`);
+					} catch (e) {
+						this.log.error(e);
+						reject(e);
+					}
+				};
+			}
             
             if (this.SuitesInfo.children.length == 0)
             {
@@ -198,27 +199,7 @@ export class TestDiscovery {
 					}
 				};
 				this.NodeById.set(classContext.node.id, classContext);
-				// if (namespace.startsWith(fileNamespace)) {
 				fileSuite.children.push(classContext.node);
-				// } else {
-				// 	var namespaceContext = this.NodeById.get(namespace) as DerivitecSuiteContext;
-				// 	if (!namespaceContext) {
-				// 		namespaceContext = {
-				// 			node: { 
-				// 				type: "suite",
-				// 				id: namespace, 
-				// 				label: namespace, 
-				// 				sourceDll: file,
-				// 				children: []
-				// 			}
-				// 		};
-				// 		this.log.info(`adding node: ${namespace}`);
-
-				// 		this.NodeById.set(namespaceContext.node.id, namespaceContext);
-				// 		fileSuite.children.push(namespaceContext.node);
-				// 	}
-				// 	namespaceContext.node.children.push(classContext.node)
-				// }
 			}
 			
 			var testInfo: DerivitecTestInfo = {
