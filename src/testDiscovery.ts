@@ -6,25 +6,18 @@ import * as fs from 'fs';
 
 import { ConfigManager } from "./configManager"
 
-import { 
-	DerivitecTestInfo, 
-	DerivitecTestContext,
-	DerivitecTestSuiteInfo, 
-	DerivitecSuiteContext
-} from './models'
-
 import {
     TestSuiteInfo
 } from 'vscode-test-adapter-api';
 
 export class TestDiscovery {
 	private readonly configManager: ConfigManager;
-    
+
     private NodeById =
         new Map<string, DerivitecSuiteContext | DerivitecTestContext>();
 
     private Loadingtest: ChildProcess | undefined;
-    
+
     private SuitesInfo: DerivitecTestSuiteInfo = {
 		type: 'suite',
 		id: 'root',
@@ -32,12 +25,12 @@ export class TestDiscovery {
 		children: [],
 		sourceDll: 'root'
 	};
-    
+
     constructor(
         private readonly workspace: vscode.WorkspaceFolder,
         private readonly outputchannel: vscode.OutputChannel,
 		private readonly log: Log,
-	){ 
+	){
 		this.configManager = new ConfigManager(this.workspace, this.log);
     }
 
@@ -72,7 +65,7 @@ export class TestDiscovery {
 					}
 				};
 			}
-            
+
             if (this.SuitesInfo.children.length == 0)
             {
                 var errorMsg = 'No tests found, check the SearchPattern in the extension settings.';
@@ -87,7 +80,7 @@ export class TestDiscovery {
         });
     }
 
-    
+
 	private async StopLoading(): Promise<void> {
 		if (this.Loadingtest == undefined)
 			return;
@@ -101,7 +94,7 @@ export class TestDiscovery {
 				resolve();
 		});
     }
-    
+
     private async LoadFiles(searchpattern: string): Promise<string[]> {
 		// global pattern for createFileSystemWatcher
 		// const globr = path.resolve(this.workspace.uri.fsPath, searchpattern!);
@@ -122,7 +115,7 @@ export class TestDiscovery {
 
 		return await new Promise<DerivitecTestSuiteInfo>((resolve, reject) => {
 			var args: string[] = [
-				'vstest', 
+				'vstest',
 				file,
 				'/ListFullyQualifiedTests',
 				`/ListTestsTargetPath:${file}.txt`
@@ -152,21 +145,21 @@ export class TestDiscovery {
 			});
 		});
     }
-    
+
     private AddtoSuite(file: string) {
 		this.log.info(`suite creation: ${file} (starting)`);
 
 		var output = fs.readFileSync(`${file}.txt`).toString()
 		let lines = output.split(/[\n\r]+/);
-		
+
 		var pathItems = file.split('/');
 		var fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
-		
+
 		this.ResetSuites(file);
-		var fileSuite: DerivitecTestSuiteInfo = { 
+		var fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
-			id: fileNamespace, 
-			label: fileNamespace, 
+			id: fileNamespace,
+			label: fileNamespace,
 			sourceDll: file,
 			children: []
 		};
@@ -187,7 +180,7 @@ export class TestDiscovery {
 
 			var classId = `${namespace}.${className}`;
 			var classContext = this.NodeById.get(classId) as DerivitecSuiteContext;
-			
+
 			if(!classContext)	{
 				classContext = {
 					node: {
@@ -201,7 +194,7 @@ export class TestDiscovery {
 				this.NodeById.set(classContext.node.id, classContext);
 				fileSuite.children.push(classContext.node);
 			}
-			
+
 			var testInfo: DerivitecTestInfo = {
 				type: 'test',
 				id: line,
@@ -218,7 +211,7 @@ export class TestDiscovery {
 		this.log.info(`suite creation:: ${file} (complete)`);
 
     }
-    
+
     	/* remove all tests of module fn from Suite */
 	private ResetSuites(fileName: string) {
 		let i = 0;
