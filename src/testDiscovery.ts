@@ -1,14 +1,9 @@
-import { ChildProcess/*, execFile*/ } from 'child_process';
-import { spawn } from 'child_process';
+import Command from './Command';
 import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
 import * as fs from 'fs';
 
-import { ConfigManager } from "./configManager"
-
-import {
-    TestSuiteInfo
-} from 'vscode-test-adapter-api';
+import { ConfigManager } from "./configManager";
 
 export class TestDiscovery {
 	private readonly configManager: ConfigManager;
@@ -16,7 +11,14 @@ export class TestDiscovery {
     private NodeById =
         new Map<string, DerivitecSuiteContext | DerivitecTestContext>();
 
-    private Loadingtest: ChildProcess | undefined;
+	private Loadingtest: Command | undefined;
+
+	private loadStatus = {
+		loaded: 0,
+		added: 0,
+		addedFromCache: 0,
+		addedFromFile: 0,
+	};
 
     private SuitesInfo: DerivitecTestSuiteInfo = {
 		type: 'suite',
@@ -35,64 +37,54 @@ export class TestDiscovery {
     }
 
     public GetNode(id: string): DerivitecSuiteContext | DerivitecTestContext {
-        var node = this.NodeById.get(id);
+        const node = this.NodeById.get(id);
         if (!node) throw `Test node '${id}' could not be found!`
         return node;
     }
 
-    public async Load(): Promise<TestSuiteInfo> {
-        return await new Promise<TestSuiteInfo>(async (resolve, reject) => {
+    public async Load(): Promise<DerivitecTestSuiteInfo> {
+		this.log.info('Loading tests (starting)');
 
-            this.log.info('Loading tests (starting)');
+		this.NodeById.set(this.SuitesInfo.id, {node: this.SuitesInfo});
 
-            this.NodeById.set(this.SuitesInfo.id, {node: this.SuitesInfo});
+		await this.StopLoading();
 
+		const searchPatterns = this.configManager.SearchPatterns();
 
-            await this.StopLoading();
+		for (const searchPattern of searchPatterns) {
+			this.UpdateOutput(`Searching for files with "${searchPattern}"`);
+			const files = await this.LoadFiles(searchPattern);
+			this.loadStatus.loaded += files.length;
+			for (const file of files) {
+				try {
+					this.log.info(`file: ${file} (loading)`);
+					await this.SetTestSuiteInfo(file);
+					this.log.info(`file: ${file} (load complete)`);
+				} catch (e) {
+					this.log.error(e);
+					throw e;
+				}
+			};
+		}
 
-            var searchPatterns = this.configManager.SearchPatterns();
+		if (this.SuitesInfo.children.length == 0)
+		{
+			const errorMsg = 'No tests found, check the SearchPattern in the extension settings.';
+			this.log.error(errorMsg);
+			throw errorMsg;
+		}
 
-			for (var searchPattern of searchPatterns) {
-				var files = await this.LoadFiles(searchPattern);
-				for (var file of files) {
-					try {
-						this.log.info(`file: ${file} (loading)`);
-						await this.SetTestSuiteInfo(file);
-						this.log.info(`file: ${file} (load complete)`);
-					} catch (e) {
-						this.log.error(e);
-						reject(e);
-					}
-				};
-			}
+		this.UpdateOutput('Loading tests complete');
 
-            if (this.SuitesInfo.children.length == 0)
-            {
-                var errorMsg = 'No tests found, check the SearchPattern in the extension settings.';
-                this.log.error(errorMsg);
-                reject(errorMsg);
-            }
-            else
-            {
-                this.log.info('Loading tests (complete)');
-                resolve(this.SuitesInfo);
-            }
-        });
+		this.log.info('Loading tests (complete)');
+		return this.SuitesInfo;
     }
 
 
 	private async StopLoading(): Promise<void> {
-		if (this.Loadingtest == undefined)
-			return;
-		return await new Promise<void>((resolve, reject) => {
-			if (this.Loadingtest != undefined) {
-				this.Loadingtest.on('close', (code) => {
-					resolve();
-				});
-				this.Loadingtest.kill();
-			} else
-				resolve();
-		});
+		if (typeof this.Loadingtest === 'undefined') return;
+		this.Loadingtest.childProcess.kill();
+		await this.Loadingtest.exitCode;
     }
 
     private async LoadFiles(searchpattern: string): Promise<string[]> {
@@ -111,52 +103,59 @@ export class TestDiscovery {
 		return files;
 	}
 
-    private async SetTestSuiteInfo(file: string): Promise<DerivitecTestSuiteInfo> {
-
-		return await new Promise<DerivitecTestSuiteInfo>((resolve, reject) => {
-			var args: string[] = [
-				'vstest',
-				file,
-				'/ListFullyQualifiedTests',
-				`/ListTestsTargetPath:${file}.txt`
-			];
-			this.log.debug(`execute: dotnet ${args.join(' ')} (starting)`);
-			this.Loadingtest = spawn('dotnet', args, { cwd: this.workspace.uri.fsPath });
-			this.Loadingtest.stdout!.on('data', data => {
-				this.outputchannel.append(data.toString());
-			});
-			this.Loadingtest.stderr!.on('data', data => {
-				this.outputchannel.append(data.toString());
-			});
-			this.Loadingtest.on('error', (err) => {
-				this.log.error(`child process exited with error ${err}`);
-				this.SuitesInfo.children.length = 0;
-				if (this.Loadingtest)
-					this.Loadingtest.removeAllListeners();
-				this.Loadingtest = undefined;
-				reject(err);
-			});
-			this.Loadingtest.on('close', (code) => {
-				this.log.debug(`execute: dotnet ${args.join(' ')} (complete)`);
-				this.Loadingtest = undefined;
-				this.log.info(`child process exited with code ${code}`);
+    private async SetTestSuiteInfo(file: string): Promise<void> {
+		const testListFile = `${file}.txt`;
+		try {
+			const cacheStat = fs.statSync(testListFile);
+			const fileStat = fs.statSync(file);
+			if (cacheStat.mtime > fileStat.mtime) {
+				this.loadStatus.addedFromCache += 1;
 				this.AddtoSuite(file);
-				resolve();
-			});
-		});
+				return;
+			}
+		} catch(err) {
+			if (err instanceof Error && err.message.indexOf('no such file')) {
+				this.log.debug(`No cache file for ${testListFile}`);
+			} else {
+				this.log.error(`Unable to check for a cache file for ${testListFile}; Encountered: ${err}`);
+			}
+		}
+
+		const args: string[] = [
+			'vstest',
+			file,
+			'/ListFullyQualifiedTests',
+			`/ListTestsTargetPath:${testListFile}`
+		];
+		this.log.debug(`execute: dotnet ${args.join(' ')} (starting)`);
+		this.Loadingtest = new Command('dotnet', args, { cwd: this.workspace.uri.fsPath});
+		this.Loadingtest.onData(data => this.outputchannel.append(data.toString()));
+		try {
+			const code = await this.Loadingtest.exitCode;
+			this.log.debug(`execute: dotnet ${args.join(' ')} (complete)`);
+			this.Loadingtest = undefined;
+			this.log.info(`child process exited with code ${code}`);
+			this.loadStatus.addedFromFile += 1;
+			this.AddtoSuite(file);
+		} catch (err) {
+			this.log.error(`child process exited with error ${err}`);
+			this.SuitesInfo.children.length = 0;
+			if (this.Loadingtest) this.Loadingtest.childProcess.removeAllListeners();
+			this.Loadingtest = undefined;
+		}
     }
 
     private AddtoSuite(file: string) {
 		this.log.info(`suite creation: ${file} (starting)`);
 
-		var output = fs.readFileSync(`${file}.txt`).toString()
+		const output = fs.readFileSync(`${file}.txt`).toString()
 		let lines = output.split(/[\n\r]+/);
 
-		var pathItems = file.split('/');
-		var fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
+		const pathItems = file.split('/');
+		const fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
 
 		this.ResetSuites(file);
-		var fileSuite: DerivitecTestSuiteInfo = {
+		const fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
 			id: fileNamespace,
 			label: fileNamespace,
@@ -172,14 +171,14 @@ export class TestDiscovery {
 				continue;
 			}
 
-			var testArray = line.split('.');
+			const testArray = line.split('.');
 			if (testArray.length < 2) continue;
-			var testName = testArray.pop()!;
-			var className = testArray.pop()!;
-			var namespace = line.replace(`.${className}.${testName}`, "");
+			const testName = testArray.pop()!;
+			const className = testArray.pop()!;
+			const namespace = line.replace(`.${className}.${testName}`, "");
 
-			var classId = `${namespace}.${className}`;
-			var classContext = this.NodeById.get(classId) as DerivitecSuiteContext;
+			const classId = `${namespace}.${className}`;
+			let classContext = this.NodeById.get(classId) as DerivitecSuiteContext;
 
 			if(!classContext)	{
 				classContext = {
@@ -195,7 +194,7 @@ export class TestDiscovery {
 				fileSuite.children.push(classContext.node);
 			}
 
-			var testInfo: DerivitecTestInfo = {
+			const testInfo: DerivitecTestInfo = {
 				type: 'test',
 				id: line,
 				description: line,
@@ -204,6 +203,7 @@ export class TestDiscovery {
 				skipped: false
 			};
 
+			this.loadStatus.added += 1;
 			this.log.info(`adding node: ${line}`);
 			this.NodeById.set(testInfo.id, {node: testInfo});
 			classContext.node.children.push(testInfo);
@@ -215,12 +215,22 @@ export class TestDiscovery {
     	/* remove all tests of module fn from Suite */
 	private ResetSuites(fileName: string) {
 		let i = 0;
-		for (var suite of this.SuitesInfo.children) {
+		for (const suite of this.SuitesInfo.children) {
 			if (suite.file == fileName) {
 				this.SuitesInfo.children.splice(i, 1);
 			}
 			i++;
 		}
+	}
+
+	private UpdateOutput(status?: string) {
+		const { loaded, added, addedFromCache, addedFromFile } = this.loadStatus;
+		this.outputchannel.clear();
+		if (status) this.outputchannel.appendLine(`[${new Date().toISOString()}] ${status} \n`);
+		this.outputchannel.appendLine(`Loaded ${loaded} test files`);
+		this.outputchannel.appendLine(`Added ${added} tests to the test suite`);
+		this.outputchannel.appendLine(`    ${addedFromCache} cached test files`);
+		this.outputchannel.appendLine(`    ${addedFromFile} test files updated since last cache`);
 	}
 
 }

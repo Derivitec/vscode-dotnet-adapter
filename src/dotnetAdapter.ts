@@ -1,7 +1,7 @@
 // vscode imports
 import * as vscode from 'vscode';
 
-// vscode-test-adapter imports 
+// vscode-test-adapter imports
 import {
 	TestAdapter,
 	TestLoadStartedEvent,
@@ -14,7 +14,7 @@ import {
 
 import { Log } from 'vscode-test-adapter-util';
 
-// derivitec imports 
+// derivitec imports
 import { TestDiscovery } from "./testDiscovery"
 import { TestRunner } from "./testRunner"
 
@@ -26,9 +26,9 @@ export class DotnetAdapter implements TestAdapter {
 
 	private readonly testRunner: TestRunner;
 
-	private readonly testsEmitter = 
+	private readonly testsEmitter =
 	    new vscode.EventEmitter<TestLoadStartedEvent | TestLoadFinishedEvent>();
-	private readonly testStatesEmitter = new vscode.EventEmitter<TestRunStartedEvent | 
+	private readonly testStatesEmitter = new vscode.EventEmitter<TestRunStartedEvent |
 	    TestRunFinishedEvent | TestSuiteEvent | TestEvent>();
 	private readonly autorunEmitter = new vscode.EventEmitter<void>();
 
@@ -50,18 +50,18 @@ export class DotnetAdapter implements TestAdapter {
 	) {
 		this.log.info('Initializing .Net Core adapter');
 		this.log.info('');
-		
+
 		this.testDiscovery = new TestDiscovery(
-			this.workspace, 
-			this.outputchannel, 
+			this.workspace,
+			this.outputchannel,
 			this.log
 		);
 
 		this.testRunner = new TestRunner(
-			this.workspace, 
-			this.outputchannel, 
-			this.log, 
-			this.testDiscovery, 
+			this.workspace,
+			this.outputchannel,
+			this.log,
+			this.testDiscovery,
 			this.testStatesEmitter
 		);
 
@@ -84,15 +84,15 @@ export class DotnetAdapter implements TestAdapter {
 
 	async load(): Promise<void> {
 		this.testsEmitter.fire(<TestLoadStartedEvent>{ type: 'started' });
-		
-		var finishedEvent: TestLoadFinishedEvent = { type: 'finished' }
-		
+
+		const finishedEvent: TestLoadFinishedEvent = { type: 'finished' }
+
 		try {
 			finishedEvent.suite = await this.testDiscovery.Load();
 		} catch (error) {
 			finishedEvent.errorMessage = error;
 		}
-		
+
 		this.testsEmitter.fire(finishedEvent);
 	}
 

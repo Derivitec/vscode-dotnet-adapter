@@ -1,6 +1,6 @@
-import { ChildProcess/*, execFile*/ } from 'child_process';
 import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
+import Command from './Command';
 
 interface IDebugRunnerInfo {
     config: vscode.DebugConfiguration;
@@ -14,7 +14,7 @@ export class DebugController {
 
     constructor(
         public readonly workspace: vscode.WorkspaceFolder,
-        private readonly Runningtest: ChildProcess | undefined,
+        private readonly Runningtest: Command | undefined,
 		private readonly log: Log,
 	){ }
 
@@ -23,9 +23,9 @@ export class DebugController {
 
         if (match && match[1]) {
 
-            var processId = match[1];
+            const processId = match[1];
 
-            var debugProcess = this.debugProcesses[processId] as IDebugRunnerInfo;
+            let debugProcess = this.debugProcesses[processId] as IDebugRunnerInfo;
 
             if (!debugProcess) {
                 debugProcess = {
@@ -48,19 +48,19 @@ export class DebugController {
                         vscode.commands.executeCommand("workbench.action.debug.continue");
                     }, 1000);
                 });
-                
+
                 const currentSession = vscode.debug.activeDebugSession;
                 if (!currentSession) {
                     this.log.error('No active debug session - aborting');
-                    if (this.Runningtest && this.Runningtest.stdin)
-                        this.Runningtest.stdin.write('Done\n');
+                    if (this.Runningtest && this.Runningtest.childProcess.stdin)
+                        this.Runningtest.childProcess.stdin.write('Done\n');
                     return;
                 }
-    
+
                 const subscription = vscode.debug.onDidTerminateDebugSession((session) => {
                     if (currentSession != session) return;
-                    if (this.Runningtest && this.Runningtest.stdin)
-                        this.Runningtest.stdin.write('Done\n');
+                    if (this.Runningtest && this.Runningtest.childProcess.stdin)
+                        this.Runningtest.childProcess.stdin.write('Done\n');
                     this.log.info('Debug session ended');
                     subscription.dispose();
                 });
