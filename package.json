@@ -78,6 +78,22 @@
           ],
           "scope": "resource"
         },
+        "dotnetCoreExplorer.runEnvVars": {
+          "description": "environment variables required by your tests or project",
+          "type": "object",
+          "items": {
+            "type": "string"
+          },
+          "default": {
+            "DOTNET_CLI_HOME": "/home/ec2-user",
+            "HOME": "/home/ec2-user",
+            "ASPNETCORE_ENVIRONMENT": "Development",
+            "EnvironmentName": "Development",
+            "AwsRegion": "us-east-1",
+            "LD_LIBRARY_PATH": "/home/linuxbrew/.linuxbrew/lib/;/home/linuxbrew/.linuxbrew/lib/gcc/9/;/media/psf/Home/Documents/dev.nosync/Derivitec/cpp/build/Derivitec/;/media/psf/Home/Documents/dev.nosync/Derivitec/cpp/build/Derivitec.Wrap/;$LD_LIBRARY_PATH"
+          },
+          "scope": "resource"
+        },
         "dotnetCoreExplorer.logpanel": {
           "description": "write diagnotic logs to an output panel",
           "type": "boolean",
