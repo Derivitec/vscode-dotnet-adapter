@@ -49,7 +49,7 @@ export class TestDiscovery {
 
 		await this.StopLoading();
 
-		const searchPatterns = this.configManager.SearchPatterns();
+		const searchPatterns = this.configManager.get('searchpatterns');
 
 		for (const searchPattern of searchPatterns) {
 			this.UpdateOutput(`Searching for files with "${searchPattern}"`);
@@ -91,9 +91,10 @@ export class TestDiscovery {
 		// global pattern for createFileSystemWatcher
 		// const globr = path.resolve(this.workspace.uri.fsPath, searchpattern!);
 		// relative pattern for findFiles
-		const glob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern!);
+		const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern);
+		const skipGlob = this.configManager.get('skippattern');
 		let files: string[] = [];
-		for (const file of await vscode.workspace.findFiles(glob)) {
+		for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
 			files.push(file.fsPath);
 		}
 		// if (this.WSWatcher != undefined)

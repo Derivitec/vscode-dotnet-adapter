@@ -77,7 +77,7 @@ export class TestRunner {
 
 		const testOutputFile = `${getUid()}.trx`;
 
-		const envVars = this.configManager.RunEnvVars();
+		const envVars = this.configManager.get('runEnvVars');
 		const args: string[] = [];
 		args.push('vstest');
 		args.push(node.sourceDll);

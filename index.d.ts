@@ -24,3 +24,13 @@ interface DerivitecTestContext {
     node: DerivitecTestInfo;
     event?: TestEvent
 }
+
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+}
+
+interface ConfigEntry<T> {
+    default: T,
+    typecheck: (data: any) => boolean,
+    required?: boolean
+}

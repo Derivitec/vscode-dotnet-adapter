@@ -63,7 +63,7 @@
           "description": "pattern to skip assemblies",
           "type": "string",
           "scope": "resource",
-          "default": "nunit\\..*\\.dll|xunit\\..*\\.dll"
+          "default": "nunit\\..*\\.dll|xunit\\..*\\.dll|**/node_modules/**/*"
         },
         "dotnetCoreExplorer.searchpatterns": {
           "description": "array of your test files or directory (relative to the workspace folder)",
