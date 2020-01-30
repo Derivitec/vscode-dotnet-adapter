@@ -8,7 +8,10 @@ const createConfigItem = <T>({ default: defaultVal, ...optional }: Partial<Confi
     ...optional
 }) as ConfigEntry<T>;
 
+const plural = (count: number) => count !== 1 ? 's' : '';
+
 export {
     getUid,
     createConfigItem,
+    plural,
 }

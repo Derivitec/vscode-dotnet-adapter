@@ -4,6 +4,7 @@ import { Log } from 'vscode-test-adapter-util';
 import * as fs from 'fs';
 
 import { ConfigManager } from "./configManager";
+import { plural } from './utilities';
 
 export class TestDiscovery {
 	private readonly configManager: ConfigManager;
@@ -17,6 +18,7 @@ export class TestDiscovery {
 		loaded: 0,
 		added: 0,
 		addedFromCache: 0,
+		updatedFromFile: 0,
 		addedFromFile: 0,
 	};
 
@@ -27,6 +29,8 @@ export class TestDiscovery {
 		children: [],
 		sourceDll: 'root'
 	};
+
+	private watchers?: vscode.FileSystemWatcher[];
 
     constructor(
         private readonly workspace: vscode.WorkspaceFolder,
@@ -49,6 +53,10 @@ export class TestDiscovery {
 
 		await this.StopLoading();
 
+		if (Array.isArray(this.watchers) && this.watchers.length > 0) {
+			this.watchers.map(watcher => watcher.dispose());
+		}
+
 		const searchPatterns = this.configManager.get('searchpatterns');
 
 		for (const searchPattern of searchPatterns) {
@@ -66,6 +74,9 @@ export class TestDiscovery {
 				}
 			};
 		}
+
+		// Create watchers
+		this.watchers = searchPatterns.map(pattern => this.setupWatcher(pattern));
 
 		if (this.SuitesInfo.children.length == 0)
 		{
@@ -85,18 +96,21 @@ export class TestDiscovery {
 		if (typeof this.Loadingtest === 'undefined') return;
 		this.Loadingtest.childProcess.kill();
 		await this.Loadingtest.exitCode;
-    }
+	}
 
     private async LoadFiles(searchpattern: string): Promise<string[]> {
 		// global pattern for createFileSystemWatcher
 		// const globr = path.resolve(this.workspace.uri.fsPath, searchpattern!);
 		// relative pattern for findFiles
+		this.outputchannel.append("\n");
+		const intervalId = setInterval(() => this.outputchannel.append('.'), 1000);
 		const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern);
 		const skipGlob = this.configManager.get('skippattern');
 		let files: string[] = [];
 		for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
 			files.push(file.fsPath);
 		}
+		clearInterval(intervalId);
 		// if (this.WSWatcher != undefined)
 		// 	this.WSWatcher.dispose();
 		// this.WSWatcher = vscode.workspace.createFileSystemWatcher(globr);
@@ -106,6 +120,7 @@ export class TestDiscovery {
 
     private async SetTestSuiteInfo(file: string): Promise<void> {
 		const testListFile = `${file}.txt`;
+		let newFile = false;
 		try {
 			const cacheStat = fs.statSync(testListFile);
 			const fileStat = fs.statSync(file);
@@ -116,6 +131,7 @@ export class TestDiscovery {
 			}
 		} catch(err) {
 			if (err instanceof Error && err.message.indexOf('no such file')) {
+				newFile = true;
 				this.log.debug(`No cache file for ${testListFile}`);
 			} else {
 				this.log.error(`Unable to check for a cache file for ${testListFile}; Encountered: ${err}`);
@@ -136,7 +152,8 @@ export class TestDiscovery {
 			this.log.debug(`execute: dotnet ${args.join(' ')} (complete)`);
 			this.Loadingtest = undefined;
 			this.log.info(`child process exited with code ${code}`);
-			this.loadStatus.addedFromFile += 1;
+			if (newFile) this.loadStatus.addedFromFile += 1;
+			else this.loadStatus.updatedFromFile += 1;
 			this.AddtoSuite(file);
 		} catch (err) {
 			this.log.error(`child process exited with error ${err}`);
@@ -211,7 +228,7 @@ export class TestDiscovery {
 		}
 		this.log.info(`suite creation:: ${file} (complete)`);
 
-    }
+	}
 
     	/* remove all tests of module fn from Suite */
 	private ResetSuites(fileName: string) {
@@ -224,14 +241,35 @@ export class TestDiscovery {
 		}
 	}
 
+	private setupWatcher(searchPattern: vscode.GlobPattern) {
+		const watcher = vscode.workspace.createFileSystemWatcher(searchPattern);
+		const add = async (uri: vscode.Uri) => {
+			if (typeof this.Loadingtest !== 'undefined') await this.Loadingtest.exitCode;
+			this.resetLoadStatus();
+			this.loadStatus.loaded += 1;
+			await this.SetTestSuiteInfo(uri.fsPath);
+			this.UpdateOutput(`New tests added from ${uri.fsPath.replace(this.workspace.uri.fsPath, '')}`);
+		}
+		watcher.onDidChange(add);
+		watcher.onDidCreate(add);
+		watcher.onDidDelete((uri) => this.ResetSuites(uri.fsPath));
+		return watcher;
+	}
+
 	private UpdateOutput(status?: string) {
-		const { loaded, added, addedFromCache, addedFromFile } = this.loadStatus;
+		const { loaded, added, addedFromCache, addedFromFile, updatedFromFile } = this.loadStatus;
 		this.outputchannel.clear();
 		if (status) this.outputchannel.appendLine(`[${new Date().toISOString()}] ${status} \n`);
-		this.outputchannel.appendLine(`Loaded ${loaded} test files`);
-		this.outputchannel.appendLine(`Added ${added} tests to the test suite`);
-		this.outputchannel.appendLine(`    ${addedFromCache} cached test files`);
-		this.outputchannel.appendLine(`    ${addedFromFile} test files updated since last cache`);
+		this.outputchannel.appendLine(`Loaded ${loaded} test file${plural(loaded)}`);
+		this.outputchannel.appendLine(`Added ${added} test${plural(added)} to the test suite`);
+		this.outputchannel.appendLine(`    ${addedFromFile} new test file${plural(addedFromFile)}`);
+		this.outputchannel.appendLine(`    ${addedFromCache} cached test file${plural(addedFromCache)}`);
+		this.outputchannel.appendLine(`    ${updatedFromFile} test file${plural(updatedFromFile)} updated since last cache`);
+	}
+
+	private resetLoadStatus() {
+		// Reset output numbers
+		Object.keys(this.loadStatus).forEach((key) => Object.assign(this.loadStatus, { [key]: 0 }));
 	}
 
 }
