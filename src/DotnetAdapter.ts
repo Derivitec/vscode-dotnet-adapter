@@ -7,8 +7,8 @@ import { TestAdapter } from 'vscode-test-adapter-api';
 import { Log } from 'vscode-test-adapter-util';
 
 // derivitec imports
-import { TestDiscovery } from "./testDiscovery"
-import { TestRunner } from "./testRunner"
+import { TestDiscovery } from "./TestDiscovery";
+import { TestRunner } from "./TestRunner";
 import OutputManager from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';

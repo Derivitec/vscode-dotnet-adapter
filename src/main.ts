@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { TestHub, testExplorerExtensionId } from 'vscode-test-adapter-api';
 import { Log, TestAdapterRegistrar } from 'vscode-test-adapter-util';
-import { DotnetAdapter } from './dotnetAdapter';
+import { DotnetAdapter } from './DotnetAdapter';
 
 export async function activate(context: vscode.ExtensionContext) {
 

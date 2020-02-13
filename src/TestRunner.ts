@@ -2,12 +2,12 @@ import * as vscode from 'vscode';
 
 import { Log } from 'vscode-test-adapter-util';
 
-import { DebugController } from "./debugController"
+import { DebugController } from "./DebugController"
 
-import { parseTestResults } from "./testResultsFile";
+import { parseTestResults } from "./TestResultsFile";
 import Command from './Command';
 import { getUid } from './utilities';
-import { ConfigManager } from './configManager';
+import { ConfigManager } from './ConfigManager';
 import TestExplorer from './TestExplorer';
 import OutputManager from './OutputManager';
 

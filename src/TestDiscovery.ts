@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
 import * as fs from 'fs';
 
-import { ConfigManager } from "./configManager";
+import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';

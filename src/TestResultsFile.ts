@@ -2,7 +2,7 @@
 import * as fs from "fs";
 //@ts-ignore
 import { DOMParser, Element, Node } from "xmldom";
-import { TestResult } from "./testResult";
+import { TestResult } from "./TestResult";
 import { readFileAsync } from './utilities';
 
 function findChildElement(node: Node, name: string): Node {
