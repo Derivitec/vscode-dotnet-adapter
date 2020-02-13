@@ -25,4 +25,10 @@ export default class Command {
     onStdErr(handler: (data: any) => void) {
         this.childProcess.stderr!.on('data', handler);
     }
+
+    dispose() {
+        this.childProcess.stdout?.removeAllListeners();
+        this.childProcess.stderr?.removeAllListeners();
+        if (!this.childProcess.killed) this.childProcess.kill();
+    }
 }

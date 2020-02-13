@@ -3,6 +3,7 @@ import * as fs from "fs";
 //@ts-ignore
 import { DOMParser, Element, Node } from "xmldom";
 import { TestResult } from "./testResult";
+import { readFileAsync } from './utilities';
 
 function findChildElement(node: Node, name: string): Node {
     let child = node.firstChild;
@@ -68,25 +69,21 @@ function updateUnitTestDefinitions(xml: Element, results: TestResult[]): void {
     }
 }
 
-export class TestResultsFile {
+const parseTestResults = async (filePath: string): Promise<TestResult[]> => {
+    let results: TestResult[];
+    const data = await readFileAsync(filePath);
+    const xdoc = new DOMParser().parseFromString(data, "application/xml");
+    results = parseUnitTestResults(xdoc.documentElement);
 
-    public parseResults(filePath: string): Promise<TestResult[]> {
-        return new Promise( (resolve, reject) => {
-            let results: TestResult[];
-            fs.readFile(filePath, (err, data) => {
-                if (!err) {
-                    const xdoc = new DOMParser().parseFromString(data.toString(), "application/xml");
-                    results = parseUnitTestResults(xdoc.documentElement);
+    updateUnitTestDefinitions(xdoc.documentElement, results);
 
-                    updateUnitTestDefinitions(xdoc.documentElement, results);
+    try {
+        fs.unlinkSync(filePath);
+    } catch {}
 
-                    try {
-                        fs.unlinkSync(filePath);
-                    } catch {}
+    return results;
+}
 
-                    resolve(results);
-                }
-            });
-        });
-    }
+export {
+    parseTestResults,
 }

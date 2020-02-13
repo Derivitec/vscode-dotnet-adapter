@@ -8,6 +8,7 @@ type TestSuiteEvent = import('vscode-test-adapter-api').TestSuiteEvent;
 type TestEvent = import('vscode-test-adapter-api').TestEvent;
 
 interface DerivitecTestSuiteInfo extends TestSuiteInfo {
+    children: (DerivitecTestSuiteInfo | DerivitecTestInfo)[];
     sourceDll: string;
 }
 
