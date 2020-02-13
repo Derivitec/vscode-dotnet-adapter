@@ -5,8 +5,8 @@ import { createConfigItem as c } from './utilities';
 const schema = {
     logpanel: c<boolean>({ default: false }),
     runEnvVars: c<object>({ default: {} }),
-    searchpatterns: c<string[]>({ default: [], required: true, typecheck: Array.isArray }),
-    skippattern: c<string>({ default: '' }),
+    searchpatterns: c<string[]>({ default: [], required: true }),
+    skippattern: c<string[]>({ default: [] }),
 };
 
 type ConfigSchema = typeof schema;

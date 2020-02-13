@@ -5,10 +5,12 @@ const toString36 = (num: number) => num.toString(36).substr(2);
 const getUid = () => toString36(Math.random()) + toString36(Date.now());
 
 const createConfigItem = <T>({ default: defaultVal, ...optional }: Partial<ConfigEntry<T>>) => ({
-    typecheck: (data: any) => typeof data === typeof defaultVal,
+    typecheck: Array.isArray(defaultVal) ? Array.isArray : (data: any) => typeof data === typeof defaultVal,
     default: defaultVal,
     ...optional
 }) as ConfigEntry<T>;
+
+const combineGlobPatterns = (patterns: string[]) => patterns.length === 1 ? patterns[0] : `{${patterns.join(',')}}`;
 
 const plurals = {
     '': 's',
@@ -45,6 +47,7 @@ const getDate = () => new Date().toISOString();
 export {
     getUid,
     createConfigItem,
+    combineGlobPatterns,
     plural,
     objToListSentence,
     readFileAsync,

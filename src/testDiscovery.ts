@@ -7,6 +7,7 @@ import { ConfigManager } from "./configManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
+import { combineGlobPatterns } from './utilities';
 
 export class TestDiscovery {
 	private readonly configManager: ConfigManager;
@@ -56,7 +57,7 @@ export class TestDiscovery {
 
 		const searchPatterns = this.configManager.get('searchpatterns');
 
-		const searchPatternConcat = `{${searchPatterns.join(',')}}`;
+		const searchPatternConcat = combineGlobPatterns(searchPatterns);
 
 		this.output.update('Searching for tests');
 		const files = await this.LoadFiles(searchPatternConcat);
@@ -99,21 +100,14 @@ export class TestDiscovery {
 	}
 
     private async LoadFiles(searchpattern: string): Promise<string[]> {
-		// global pattern for createFileSystemWatcher
-		// const globr = path.resolve(this.workspace.uri.fsPath, searchpattern!);
-		// relative pattern for findFiles
 		const stopLoader = this.output.loader();
 		const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern);
-		const skipGlob = this.configManager.get('skippattern');
+		const skipGlob = combineGlobPatterns(this.configManager.get('skippattern'));
 		let files: string[] = [];
 		for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
 			files.push(file.fsPath);
 		}
 		stopLoader();
-		// if (this.WSWatcher != undefined)
-		// 	this.WSWatcher.dispose();
-		// this.WSWatcher = vscode.workspace.createFileSystemWatcher(globr);
-		// this.addwatcher(this.WSWatcher);
 		return files;
 	}
 
