@@ -1,6 +1,6 @@
 # .Net Core Test Explorer for Visual Studio Code
 
-Run your .Net Core tests using the 
+Run your .Net Core tests using the
 [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer).
 
 <!--- add gif --->
@@ -25,10 +25,11 @@ Run your .Net Core tests using the
 
 ### Options
 
-Property                        | Description
---------------------------------|---------------------------------------------------------------
-`dotnetCoreExplorer.searchpatterns`  		| The glob describing the location of your test assemblies (relative to the workspace folder) (default: `"**/bin/**/*.{dll,exe}"`)
-`dotnetCoreExplorer.skippattern`	| Assemblies to skip from searching for tests.(default: exclude any files starting with nunit.\*.dll or xunit.\*.dll)
+Property                            | Description
+------------------------------------|---------------------------------------------------------------
+`dotnetCoreExplorer.searchpatterns` | The glob describing the location of your test assemblies (relative to the workspace folder) (default: `["**/bin/**/*.{dll,exe}"]`)
+`dotnetCoreExplorer.skippatterns`    | Assemblies to skip from searching for tests.(default: `["**/{nunit,xunit}.*.dll"]`, i.e.: exclude any files starting with nunit.\*.dll or xunit.\*.dll)
+`dotnetCoreExplorer.runEnvVars`     | Additional environment variables that your project needs present while running tests (default: `{}`)
 
 
 

@@ -59,11 +59,16 @@
       "type": "object",
       "title": ".Net Core Test Explorer",
       "properties": {
-        "dotnetCoreExplorer.skippattern": {
-          "description": "pattern to skip assemblies",
-          "type": "string",
+        "dotnetCoreExplorer.skippatterns": {
+          "description": "Array of patterns skip assemblies",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
           "scope": "resource",
-          "default": "nunit\\..*\\.dll|xunit\\..*\\.dll|**/node_modules/**/*"
+          "default": [
+            "**/{nunit,xunit}.*.dll"
+          ]
         },
         "dotnetCoreExplorer.searchpatterns": {
           "description": "array of your test files or directory (relative to the workspace folder)",
@@ -72,9 +77,7 @@
             "type": "string"
           },
           "default": [
-            "**/bin/x64/**/*UnitTests.dll",
-            "**/bin/x64/**/*IntegrationTests.dll",
-            "**/bin/x64/**/*AcceptanceTests.dll"
+            "**/bin/**/*.{dll,exe}"
           ],
           "scope": "resource"
         },
@@ -84,14 +87,7 @@
           "items": {
             "type": "string"
           },
-          "default": {
-            "DOTNET_CLI_HOME": "/home/ec2-user",
-            "HOME": "/home/ec2-user",
-            "ASPNETCORE_ENVIRONMENT": "Development",
-            "EnvironmentName": "Development",
-            "AwsRegion": "us-east-1",
-            "LD_LIBRARY_PATH": "/home/linuxbrew/.linuxbrew/lib/;/home/linuxbrew/.linuxbrew/lib/gcc/9/;/media/psf/Home/Documents/dev.nosync/Derivitec/cpp/build/Derivitec/;/media/psf/Home/Documents/dev.nosync/Derivitec/cpp/build/Derivitec.Wrap/;$LD_LIBRARY_PATH"
-          },
+          "default": {},
           "scope": "resource"
         },
         "dotnetCoreExplorer.logpanel": {
