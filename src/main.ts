@@ -10,7 +10,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	if(!workspaceFolder) return;
 
 	// create a simple logger that can be configured with the configuration variables
-	// `exampleExplorer.logpanel` and `exampleExplorer.logfile`
+	// `dotnetCoreExplorer.logpanel` and `dotnetCoreExplorer.logfile`
 	const log = new Log('dotnetCoreExplorer', workspaceFolder, '.Net Core Explorer Log');
 	context.subscriptions.push(log);
 
@@ -22,7 +22,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const testHub = testExplorerExtension.exports;
 
-		// this will register an ExampleTestAdapter for each WorkspaceFolder
+		// this will register an DotnetTestAdapter for each WorkspaceFolder
 		context.subscriptions.push(new TestAdapterRegistrar(
 			testHub,
 			workspaceFolder => new DotnetAdapter(workspaceFolder, log),

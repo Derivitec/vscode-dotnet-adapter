@@ -3,9 +3,12 @@
   "displayName": ".Net Core Test Explorer",
   "description": "Run your dotnet core cs tests in the Sidebar of Visual Studio Code",
   "icon": "img/icon.png",
-  "author": "PK",
-  "publisher": "wghats",
-  "version": "0.8.0",
+  "contributors": [
+    "Michael Armitage (https://github.com/armitagemderivitec)",
+    "Andrew Bridge (http://github.com/andrewbridge)"
+  ],
+  "publisher": "derivitec",
+  "version": "1.0.0",
   "license": "MIT",
   "homepage": "https://github.com/Derivitec/vscode-dotnet-adapter",
   "repository": {
