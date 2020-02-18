@@ -25,16 +25,16 @@ export default class CodeLensProcessor {
             this.setupOnOmnisharpReady();
         } else {
             this.output.update('CodeLens integration deactivated. Change the codeLens setting if you wish to activate.');
-            this.disposables.push(
-                this.configManager.addWatcher('codeLens', (newValue: boolean) => {
-                    if (newValue === true && !this.waiting && !this.ready) {
-                        this.setupOnOmnisharpReady();
-                        return;
-                    }
-                    this.output.update('CodeLens integration was previously activated and is already in progress.');
-                })
-            );
         }
+        this.disposables.push(
+            this.configManager.addWatcher('codeLens', (newValue: boolean) => {
+                if (newValue === true && !this.waiting && !this.ready) {
+                    this.setupOnOmnisharpReady();
+                    return;
+                }
+                this.output.update('CodeLens integration was previously activated and is already in progress.');
+            })
+        );
     }
 
     private async setupOnOmnisharpReady() {

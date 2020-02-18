@@ -47,6 +47,7 @@ export class ConfigManager {
     private setupConfigChangeListeners() {
         const disposeListener = vscode.workspace.onDidChangeConfiguration(configChange => {
             this.log.info('Configuration changed');
+            this.config = vscode.workspace.getConfiguration('dotnetCoreExplorer', this.workspace.uri);
             const activeWatchers = this.configKeys.filter(key => this.watchers[key].size > 0);
             activeWatchers.forEach((key) => {
                 if (configChange.affectsConfiguration(`dotnetCoreExplorer.${key}`, this.workspace.uri)) {
