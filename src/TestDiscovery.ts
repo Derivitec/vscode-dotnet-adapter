@@ -7,7 +7,7 @@ import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
-import { combineGlobPatterns } from './utilities';
+import { optimiseGlobPatterns } from './utilities';
 
 
 export class TestDiscovery {
@@ -56,10 +56,8 @@ export class TestDiscovery {
 
 		const searchPatterns = this.configManager.get('searchpatterns');
 
-		const searchPatternConcat = combineGlobPatterns(searchPatterns);
-
 		this.output.update('Searching for tests');
-		const files = await this.LoadFiles(searchPatternConcat);
+		const files = await this.LoadFiles(searchPatterns);
 		this.loadStatus.loaded += files.length;
 		for (const file of files) {
 			try {
@@ -98,13 +96,16 @@ export class TestDiscovery {
 		await this.Loadingtest.exitCode;
 	}
 
-    private async LoadFiles(searchpattern: string): Promise<string[]> {
+    private async LoadFiles(searchpatterns: string[]): Promise<string[]> {
 		const stopLoader = this.output.loader();
-		const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern);
-		const skipGlob = combineGlobPatterns(this.configManager.get('skippatterns'));
+		const skipGlob = this.configManager.get('skippattern');
+		const patterns = optimiseGlobPatterns(searchpatterns);
 		let files: string[] = [];
-		for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
-			files.push(file.fsPath);
+		for (let i = 0; i < patterns.length; i++) {
+			const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, patterns[i]);
+			for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
+				files.push(file.fsPath);
+			}
 		}
 		stopLoader();
 		return files;

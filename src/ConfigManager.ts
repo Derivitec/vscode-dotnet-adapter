@@ -7,7 +7,7 @@ const schema = {
     codeLens: c<boolean>({ default: true }),
     runEnvVars: c<object>({ default: {} }),
     searchpatterns: c<string[]>({ default: [], required: true }),
-    skippatterns: c<string[]>({ default: [] }),
+    skippattern: c<string>({ default: '' }),
 };
 
 type ConfigSchema = typeof schema;
