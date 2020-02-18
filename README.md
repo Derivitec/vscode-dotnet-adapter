@@ -28,8 +28,9 @@ Run your .Net Core tests using the
 Property                            | Description
 ------------------------------------|---------------------------------------------------------------
 `dotnetCoreExplorer.searchpatterns` | The glob describing the location of your test assemblies (relative to the workspace folder) (default: `["**/bin/**/*.{dll,exe}"]`)
-`dotnetCoreExplorer.skippatterns`    | Assemblies to skip from searching for tests.(default: `["**/{nunit,xunit}.*.dll"]`, i.e.: exclude any files starting with nunit.\*.dll or xunit.\*.dll)
+`dotnetCoreExplorer.skippatterns`   | Assemblies to skip from searching for tests.(default: `["**/{nunit,xunit}.*.dll"]`, i.e.: exclude any files starting with nunit.\*.dll or xunit.\*.dll)
 `dotnetCoreExplorer.runEnvVars`     | Additional environment variables that your project needs present while running tests (default: `{}`)
+`dotnetCoreExplorer.codeLens`       | Enable CodeLens symbol integration with the [C# Omnisharp VSCode extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) (default: `true`)
 
 
 

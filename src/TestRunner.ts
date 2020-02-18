@@ -14,19 +14,16 @@ import OutputManager from './OutputManager';
 const getMethodName = (fullName: string) => fullName.substr(fullName.lastIndexOf('.') + 1);
 
 export class TestRunner {
-	private readonly configManager: ConfigManager;
-
 	private Runningtest: Command | undefined;
 
     constructor(
 		private readonly workspace: vscode.WorkspaceFolder,
 		private readonly nodeMap: Map<string, DerivitecSuiteContext | DerivitecTestContext>,
 		private readonly output: OutputManager,
+		private readonly configManager: ConfigManager,
 		private readonly log: Log,
         private readonly testExplorer: TestExplorer,
-	) {
-		this.configManager = new ConfigManager(this.workspace, this.log);
-	}
+	) {}
 
     public Run(tests: string[]): Promise<void> {
         return this.InnerRun(tests, false);

@@ -9,9 +9,8 @@ import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
 import { combineGlobPatterns } from './utilities';
 
-export class TestDiscovery {
-	private readonly configManager: ConfigManager;
 
+export class TestDiscovery {
 	private Loadingtest: Command | undefined;
 
 	private loadStatus: Loaded;
@@ -30,11 +29,11 @@ export class TestDiscovery {
 		private readonly workspace: vscode.WorkspaceFolder,
 		private readonly nodeMap: Map<string, DerivitecSuiteContext | DerivitecTestContext>,
 		private readonly output: OutputManager,
+		private readonly configManager: ConfigManager,
 		private readonly codeLens: CodeLensProcessor,
 		private readonly testExplorer: TestExplorer,
 		private readonly log: Log,
 	){
-		this.configManager = new ConfigManager(this.workspace, this.log);
 		this.loadStatus = this.output.loaded;
     }
 
@@ -102,7 +101,7 @@ export class TestDiscovery {
     private async LoadFiles(searchpattern: string): Promise<string[]> {
 		const stopLoader = this.output.loader();
 		const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, searchpattern);
-		const skipGlob = combineGlobPatterns(this.configManager.get('skippattern'));
+		const skipGlob = combineGlobPatterns(this.configManager.get('skippatterns'));
 		let files: string[] = [];
 		for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
 			files.push(file.fsPath);

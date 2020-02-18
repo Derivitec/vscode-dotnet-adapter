@@ -1,10 +1,15 @@
 import * as vscode from 'vscode';
 import OutputManager from './OutputManager';
 import TestExplorer from './TestExplorer';
+import { ConfigManager } from './ConfigManager';
 
 const getOmnisharp = () => vscode.extensions.getExtension('ms-vscode.csharp');
 
 export default class CodeLensProcessor {
+    private disposables: { dispose(): void }[] = [];
+
+    public waiting = false;
+
     public ready = false;
 
     private cancel = false;
@@ -13,15 +18,37 @@ export default class CodeLensProcessor {
 
     constructor(
         private output: OutputManager,
+        private configManager: ConfigManager,
         private testExplorer: TestExplorer,
     ) {
-        const handleError = this.handleError.bind(this);
-        this.monitorOmnisharpInitialisation().then(() => {
+        if (this.configManager.get('codeLens')) {
+            this.setupOnOmnisharpReady();
+        } else {
+            this.output.update('CodeLens integration deactivated. Change the codeLens setting if you wish to activate.');
+            this.disposables.push(
+                this.configManager.addWatcher('codeLens', (newValue: boolean) => {
+                    if (newValue === true && !this.waiting && !this.ready) {
+                        this.setupOnOmnisharpReady();
+                        return;
+                    }
+                    this.output.update('CodeLens integration was previously activated and is already in progress.');
+                })
+            );
+        }
+    }
+
+    private async setupOnOmnisharpReady() {
+        this.waiting = true;
+        await this.monitorOmnisharpInitialisation();
+        this.waiting = false;
+        try {
             this.ready = true;
             const suite = this.deferredSuite;
             this.deferredSuite = undefined;
             if (suite) this.process(suite);
-        }).catch(handleError);
+        } catch (e) {
+            this.handleError(e);
+        }
     }
 
     private async monitorOmnisharpInitialisation() {
@@ -110,5 +137,9 @@ export default class CodeLensProcessor {
 
     dispose() {
         this.cancel = true;
+        for (const disposable of this.disposables) {
+            disposable.dispose();
+        }
+        this.disposables = [];
     }
 }

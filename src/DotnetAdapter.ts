@@ -12,6 +12,7 @@ import { TestRunner } from "./TestRunner";
 import OutputManager from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
+import { ConfigManager } from './ConfigManager';
 
 export class DotnetAdapter implements TestAdapter {
 
@@ -23,7 +24,9 @@ export class DotnetAdapter implements TestAdapter {
 
 	private readonly testExplorer = new TestExplorer(this.nodeMap);
 
-	private readonly codeLensProcessor?: CodeLensProcessor;
+	private readonly configManager: ConfigManager;
+
+	private readonly codeLensProcessor: CodeLensProcessor;
 
 	private readonly testDiscovery: TestDiscovery;
 
@@ -46,8 +49,14 @@ export class DotnetAdapter implements TestAdapter {
 		this.log.info('Initializing .Net Core adapter');
 		this.log.info('');
 
+		this.configManager = new ConfigManager(
+			this.workspace,
+			this.log,
+		);
+
 		this.codeLensProcessor = new CodeLensProcessor(
 			this.outputManager,
+			this.configManager,
 			this.testExplorer,
 		);
 
@@ -55,6 +64,7 @@ export class DotnetAdapter implements TestAdapter {
 			this.workspace,
 			this.nodeMap,
 			this.outputManager,
+			this.configManager,
 			this.codeLensProcessor,
 			this.testExplorer,
 			this.log
@@ -64,23 +74,21 @@ export class DotnetAdapter implements TestAdapter {
 			this.workspace,
 			this.nodeMap,
 			this.outputManager,
+			this.configManager,
 			this.log,
 			this.testExplorer
 		);
 
-		this.disposables.push(this.testExplorer);
-		this.disposables.push(this.codeLensProcessor);
+		// Watch config changes to searchpatterns
+		this.configManager.addWatcher('searchpatterns', () => {
+			this.log.info('Sending reload event');
+			this.load();
+		});
+
 		this.disposables.push(
-			vscode.workspace.onDidChangeConfiguration(configChange => {
-
-				this.log.info('Configuration changed');
-
-				if (configChange.affectsConfiguration('dotnetCoreExplorer.searchpatterns', this.workspace.uri)) {
-
-					this.log.info('Sending reload event');
-					this.load();
-				}
-			})
+			this.testExplorer,
+			this.codeLensProcessor,
+			this.configManager
 		);
 	}
 

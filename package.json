@@ -93,6 +93,12 @@
           "default": {},
           "scope": "resource"
         },
+        "dotnetCoreExplorer.codeLens": {
+          "description": "enable CodeLens symbol integration with the C# Omnisharp VSCode extension",
+          "type": "boolean",
+          "default": true,
+          "scope": "resource"
+        },
         "dotnetCoreExplorer.logpanel": {
           "description": "write diagnotic logs to an output panel",
           "type": "boolean",
