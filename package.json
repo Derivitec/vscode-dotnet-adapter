@@ -8,7 +8,7 @@
     "Andrew Bridge (http://github.com/andrewbridge)"
   ],
   "publisher": "derivitec-ltd",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "license": "MIT",
   "homepage": "https://github.com/Derivitec/vscode-dotnet-adapter",
   "repository": {
@@ -62,16 +62,11 @@
       "type": "object",
       "title": ".Net Core Test Explorer",
       "properties": {
-        "dotnetCoreExplorer.skippatterns": {
-          "description": "Array of patterns skip assemblies",
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "scope": "resource",
-          "default": [
-            "**/{nunit,xunit}.*.dll"
-          ]
+        "dotnetCoreExplorer.skippattern": {
+          "description": "Pattern to skip assemblies",
+          "type": "string",
+          "default": "**/{nunit,xunit}.*.dll",
+          "scope": "resource"
         },
         "dotnetCoreExplorer.searchpatterns": {
           "description": "array of your test files or directory (relative to the workspace folder)",
@@ -91,6 +86,12 @@
             "type": "string"
           },
           "default": {},
+          "scope": "resource"
+        },
+        "dotnetCoreExplorer.codeLens": {
+          "description": "enable CodeLens symbol integration with the C# Omnisharp VSCode extension",
+          "type": "boolean",
+          "default": true,
           "scope": "resource"
         },
         "dotnetCoreExplorer.logpanel": {

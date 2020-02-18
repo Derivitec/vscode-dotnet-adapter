@@ -10,7 +10,11 @@ const createConfigItem = <T>({ default: defaultVal, ...optional }: Partial<Confi
     ...optional
 }) as ConfigEntry<T>;
 
-const combineGlobPatterns = (patterns: string[]) => patterns.length === 1 ? patterns[0] : `{${patterns.join(',')}}`;
+// We can combine glob patterns together, but we can't nest group conditions in vscode
+const optimiseGlobPatterns = (patterns: string[]) => {
+    if (patterns.every(pattern => pattern.indexOf('{') === -1)) return [`{${patterns.join(',')}}`];
+    return patterns;
+}
 
 const plurals = {
     '': 's',
@@ -47,7 +51,7 @@ const getDate = () => new Date().toISOString();
 export {
     getUid,
     createConfigItem,
-    combineGlobPatterns,
+    optimiseGlobPatterns,
     plural,
     objToListSentence,
     readFileAsync,
