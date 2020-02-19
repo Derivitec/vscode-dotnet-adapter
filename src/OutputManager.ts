@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { plural, objToListSentence, getDate } from './utilities';
+import Command from './Command';
 
 const loadedDefault = () => ({
     loaded: 0,
@@ -102,6 +103,10 @@ ${this.log.join('\n')}`);
                 this.update(`${id} finished`);
             }
         };
+    }
+
+    connectCommand(cmd: Command) {
+        cmd.onData(data => this.outputChannel.append(data.toString()));
     }
 
     resetLoaded() {

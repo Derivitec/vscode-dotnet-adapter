@@ -1,19 +1,26 @@
 import Command from './Command';
 import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
-import * as fs from 'fs';
 
 import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
-import { optimiseGlobPatterns } from './utilities';
+import { optimiseGlobPatterns, getFileFromPath, getErrStr } from './utilities';
 
+const fs = vscode.workspace.fs;
+
+enum DISCOVERY_ERROR {
+	VSTEST_STDERR = 'DISCOVERY_ERROR: VSTEST_STDERR',
+	SYMBOL_FILE_EMPTY = 'DISCOVERY_ERROR: SYMBOL_FILE_EMPTY'
+};
 
 export class TestDiscovery {
 	private Loadingtest: Command | undefined;
 
 	private loadStatus: Loaded;
+
+	private loadErrors = new Map<string, unknown>();
 
     private SuitesInfo: DerivitecTestSuiteInfo = {
 		type: 'suite',
@@ -59,6 +66,8 @@ export class TestDiscovery {
 		this.output.update('Searching for tests');
 		const files = await this.LoadFiles(searchPatterns);
 		this.loadStatus.loaded += files.length;
+		this.output.update(`Loading tests from ${files.length} files`);
+		const stopLoader = this.output.loader();
 		for (const file of files) {
 			try {
 				this.log.info(`file: ${file} (loading)`);
@@ -69,6 +78,22 @@ export class TestDiscovery {
 				throw e;
 			}
 		};
+		stopLoader();
+
+		if (this.loadErrors.size > 0) {
+			this.output.update(`Encountered errors in ${this.loadErrors.size} files during loading.`)
+			const errArr = Array.from(this.loadErrors.entries());
+			if (errArr.some(([file, err]) => err === DISCOVERY_ERROR.VSTEST_STDERR)) {
+				this.output.update(`Some of these errors were encountered by vstest. See ".NET Core Test Output" pane for details.`);
+			}
+			const emptyErr = errArr.filter(([file, err]) => err === DISCOVERY_ERROR.SYMBOL_FILE_EMPTY);
+			if (emptyErr.length > 0) {
+				let err = `The following assemblies produced empty symbol files. If there are test methods in this project, try reloading.\n`;
+				err += emptyErr.map(([file]) => file).join('\n');
+				this.output.update(err);
+			}
+			this.loadErrors.clear();
+		}
 
 		// Create watchers
 		this.watchers = searchPatterns.map(pattern => this.setupWatcher(pattern));
@@ -115,22 +140,25 @@ export class TestDiscovery {
 		const testListFile = `${file}.txt`;
 		let newFile = false;
 		try {
-			const cacheStat = fs.statSync(testListFile);
-			const fileStat = fs.statSync(file);
+			const cacheStat = await fs.stat(vscode.Uri.parse(testListFile));
+			const fileStat = await fs.stat(vscode.Uri.parse(file));
 			if (cacheStat.mtime > fileStat.mtime) {
 				this.loadStatus.addedFromCache += 1;
 				this.AddtoSuite(file);
 				return;
 			}
 		} catch(err) {
-			if (err instanceof Error && err.message.indexOf('no such file')) {
+			const msg = getErrStr(err);
+			if (msg.indexOf('non-existing file')) {
 				newFile = true;
 				this.log.debug(`No cache file for ${testListFile}`);
 			} else {
 				this.log.error(`Unable to check for a cache file for ${testListFile}; Encountered: ${err}`);
+				this.handleLoadError(file, err);
 			}
 		}
 
+		let error = false;
 		const args: string[] = [
 			'vstest',
 			file,
@@ -139,27 +167,37 @@ export class TestDiscovery {
 		];
 		this.log.debug(`execute: dotnet ${args.join(' ')} (starting)`);
 		this.Loadingtest = new Command('dotnet', args, { cwd: this.workspace.uri.fsPath});
-		this.Loadingtest.onData(data => this.output.update(data.toString()));
+		this.output.connectCommand(this.Loadingtest);
+		this.Loadingtest.onStdErr(() => {
+			error = true;
+		})
+		const previousChildCount = this.SuitesInfo.children.length;
 		try {
 			const code = await this.Loadingtest.exitCode;
+			if (error) throw DISCOVERY_ERROR.VSTEST_STDERR;
 			this.log.debug(`execute: dotnet ${args.join(' ')} (complete)`);
 			this.Loadingtest = undefined;
 			this.log.info(`child process exited with code ${code}`);
 			if (newFile) this.loadStatus.addedFromFile += 1;
 			else this.loadStatus.updatedFromFile += 1;
-			this.AddtoSuite(file);
+			await this.AddtoSuite(file);
 		} catch (err) {
 			this.log.error(`child process exited with error ${err}`);
-			this.SuitesInfo.children.length = 0;
+			this.handleLoadError(file, err);
+			if (previousChildCount !== this.SuitesInfo.children.length) {
+				// If AddtoSuite has some how died mid run, adding a corrupt suite, return the array length to pre-add length
+				this.SuitesInfo.children.length = previousChildCount;
+			}
 			if (this.Loadingtest) this.Loadingtest.dispose();
 			this.Loadingtest = undefined;
 		}
     }
 
-    private AddtoSuite(file: string) {
+    private async AddtoSuite(file: string) {
 		this.log.info(`suite creation: ${file} (starting)`);
 
-		const output = fs.readFileSync(`${file}.txt`).toString()
+		const testFile = vscode.Uri.parse(`${file}.txt`);
+		const output = (await fs.readFile(testFile)).toString()
 		let lines = output.split(/[\n\r]+/);
 
 		const pathItems = file.split('/');
@@ -219,6 +257,12 @@ export class TestDiscovery {
 			this.nodeMap.set(testInfo.id, {node: testInfo});
 			classContext.node.children.push(testInfo);
 		}
+
+		if (!fileSuite.children.length) {
+			// Nothing has been added, which means there aren't any symbols in this file, delete it in case of error
+			this.log.info(`suite creation:: ${file} was empty (erroring)`);
+			throw DISCOVERY_ERROR.SYMBOL_FILE_EMPTY;
+		}
 		this.log.info(`suite creation:: ${file} (complete)`);
 
 	}
@@ -239,10 +283,22 @@ export class TestDiscovery {
 		const add = async (uri: vscode.Uri) => {
 			if (typeof this.Loadingtest !== 'undefined') await this.Loadingtest.exitCode;
 			const finish = await this.testExplorer.load();
+			const file = getFileFromPath(uri.fsPath);
 			this.output.resetLoaded()
 			this.loadStatus.loaded += 1;
 			try {
 				await this.SetTestSuiteInfo(uri.fsPath);
+				if (this.loadErrors.size > 0 && this.loadErrors.has(file)) {
+					const loadError = this.loadErrors.get(file);
+					let err = `An error occurred while loading ${file}: `;
+					if (loadError === DISCOVERY_ERROR.VSTEST_STDERR) {
+						err += 'See ".NET Core Test Output" pane for details.';
+					} else if (loadError === DISCOVERY_ERROR.SYMBOL_FILE_EMPTY) {
+						err += 'The symbols file produced was empty, are there tests in this project?';
+					}
+					this.output.update(err);
+					this.loadErrors.clear();
+				}
 				// Send to CodeLensProcessor; Do NOT wait for it as it'll cause a deadlock
 				this.codeLens.process(this.SuitesInfo);
 				this.output.update(`New tests added from ${uri.fsPath.replace(this.workspace.uri.fsPath, '')}`, true);
@@ -255,6 +311,20 @@ export class TestDiscovery {
 		watcher.onDidCreate(add);
 		watcher.onDidDelete((uri) => this.ResetSuites(uri.fsPath));
 		return watcher;
+	}
+
+	private async handleLoadError(file: string, err: unknown) {
+		const testListFile = `${file}.txt`;
+		this.loadErrors.set(getFileFromPath(file), err);
+		try {
+			await fs.delete(vscode.Uri.parse(testListFile));
+		} catch (err) {
+			const msg = getErrStr(err);
+			// If the error is due to the file already being deleted, don't raise an error in the log
+			if (msg.indexOf('non-existing file') === -1) {
+				this.log.error(`Unable to delete ${testListFile}: ${msg}`);
+			}
+		}
 	}
 
 	public dispose() {
