@@ -55,6 +55,8 @@ export class TestDiscovery {
 
 		this.nodeMap.set(this.SuitesInfo.id, {node: this.SuitesInfo});
 
+		this.output.resetLoaded();
+
 		await this.StopLoading();
 
 		if (Array.isArray(this.watchers) && this.watchers.length > 0) {
@@ -144,12 +146,12 @@ export class TestDiscovery {
 			const fileStat = await fs.stat(vscode.Uri.parse(file));
 			if (cacheStat.mtime > fileStat.mtime) {
 				this.loadStatus.addedFromCache += 1;
-				this.AddtoSuite(file);
+				await this.AddtoSuite(file);
 				return;
 			}
 		} catch(err) {
 			const msg = getErrStr(err);
-			if (msg.indexOf('non-existing file')) {
+			if (msg.indexOf('non-existing file') > -1) {
 				newFile = true;
 				this.log.debug(`No cache file for ${testListFile}`);
 			} else {
@@ -171,7 +173,6 @@ export class TestDiscovery {
 		this.Loadingtest.onStdErr(() => {
 			error = true;
 		})
-		const previousChildCount = this.SuitesInfo.children.length;
 		try {
 			const code = await this.Loadingtest.exitCode;
 			if (error) throw DISCOVERY_ERROR.VSTEST_STDERR;
@@ -184,10 +185,6 @@ export class TestDiscovery {
 		} catch (err) {
 			this.log.error(`child process exited with error ${err}`);
 			this.handleLoadError(file, err);
-			if (previousChildCount !== this.SuitesInfo.children.length) {
-				// If AddtoSuite has some how died mid run, adding a corrupt suite, return the array length to pre-add length
-				this.SuitesInfo.children.length = previousChildCount;
-			}
 			if (this.Loadingtest) this.Loadingtest.dispose();
 			this.Loadingtest = undefined;
 		}
@@ -203,7 +200,8 @@ export class TestDiscovery {
 		const pathItems = file.split('/');
 		const fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
 
-		this.ResetSuites(file);
+		const previousChildCount = this.SuitesInfo.children.length;
+
 		const fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
 			id: fileNamespace,
@@ -211,9 +209,23 @@ export class TestDiscovery {
 			sourceDll: file,
 			children: []
 		};
-		this.log.info(`adding node: ${fileNamespace}`);
+		let inserted = false;
+		if (this.nodeMap.has(fileSuite.id)) {
+			this.log.info(`resetting node: ${fileNamespace}`);
+			const suiteIndex = this.ResetSuites(file);
+			if (suiteIndex > -1) {
+				this.log.info(`replacing node: ${fileNamespace}`);
+				this.SuitesInfo.children[suiteIndex] = fileSuite;
+				inserted = true;
+			}
+		}
+
+		if (!inserted) {
+			this.log.info(`adding node: ${fileNamespace}`);
+			this.SuitesInfo.children.push(fileSuite);
+		}
 		this.nodeMap.set(fileSuite.id, {node: fileSuite});
-		this.SuitesInfo.children.push(fileSuite);
+
 
 		for (const line of lines) {
 			if (!line) {
@@ -261,21 +273,30 @@ export class TestDiscovery {
 		if (!fileSuite.children.length) {
 			// Nothing has been added, which means there aren't any symbols in this file, delete it in case of error
 			this.log.info(`suite creation:: ${file} was empty (erroring)`);
+			if (previousChildCount !== this.SuitesInfo.children.length) {
+				// If AddtoSuite has some how died mid run, adding a corrupt suite, return the array length to pre-add length
+				this.SuitesInfo.children.length = previousChildCount;
+			}
 			throw DISCOVERY_ERROR.SYMBOL_FILE_EMPTY;
 		}
 		this.log.info(`suite creation:: ${file} (complete)`);
 
 	}
 
-    	/* remove all tests of module fn from Suite */
-	private ResetSuites(fileName: string) {
-		let i = 0;
-		for (const suite of this.SuitesInfo.children) {
-			if (suite.file == fileName) {
-				this.SuitesInfo.children.splice(i, 1);
+	/* remove all tests of module fn from Suite */
+	private ResetSuites(fileName: string, removeSuite = false) {
+		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
+		this.nodeMap.forEach((value,key) => {
+			if (value.node.sourceDll === fileName) {
+				this.nodeMap.delete(key);
 			}
-			i++;
+		});
+		// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later
+		const suiteIndex = this.SuitesInfo.children.findIndex(suite => suite.sourceDll === fileName);
+		if (removeSuite && suiteIndex > -1) {
+			this.SuitesInfo.children.splice(suiteIndex, 1);
 		}
+		return suiteIndex;
 	}
 
 	private setupWatcher(searchPattern: vscode.GlobPattern) {
