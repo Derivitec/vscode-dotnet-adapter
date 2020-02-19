@@ -28,11 +28,14 @@ const plural = (count: number, word: keyof typeof plurals = '') => {
 
 const objToListSentence = (obj: { [key: string]: number }, ignoreZeros = true) => {
     let str = '';
-    Object.entries(obj).forEach(([key, value], i, arr) => {
+    let entries = Object.entries(obj);
+    if (ignoreZeros) {
+        entries = entries.filter(([key, value]) => value !== 0);
+    }
+    entries.forEach(([key, value], i, arr) => {
         const needsJoiner = str.length > 0;
         const last = arr.length - 1 === i;
         const joiner = last ? ' and ' : ', ';
-        if (value === 0 && ignoreZeros) return;
         if (needsJoiner) str += joiner;
         str += `${value} ${key}`;
     });
@@ -48,6 +51,14 @@ const readFileAsync = (filePath: string, options?: object) => new Promise((resol
 
 const getDate = () => new Date().toISOString();
 
+const getFileFromPath = (path: string) => path.substr(path.lastIndexOf('/') + 1);
+
+const getErrStr = (err: any) => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    return err.toString();
+}
+
 export {
     getUid,
     createConfigItem,
@@ -56,4 +67,6 @@ export {
     objToListSentence,
     readFileAsync,
     getDate,
+    getFileFromPath,
+    getErrStr,
 }
