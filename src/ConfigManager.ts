@@ -3,6 +3,7 @@ import { Log } from 'vscode-test-adapter-util';
 import { createConfigItem as c, plural } from './utilities';
 
 const schema = {
+    attachCpp: c<boolean>({ default: false }),
     logpanel: c<boolean>({ default: false }),
     codeLens: c<boolean>({ default: true }),
     runEnvVars: c<object>({ default: {} }),

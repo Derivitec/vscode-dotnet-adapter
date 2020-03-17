@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2020-03-16
+### Added
+- It's now possible to debug from C# to C++ during test debugging
+- New setting, `attachCpp`, will enable C# to C++ debugging
+
 ## [1.2.0] - 2020-02-19
 ### Added
 - Collect and report various errors encountered during discovery in a non-noisy way
@@ -20,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Loaded counts are reset prior to each load
 - Previously reloading or updating (via file watchers) the suite was additive causing duplicate tests to appear. New suites replace old ones where the suite id matches
 - Loaded count summarisation didn't correctly construct sentences when some counts were zero
+
+[More detail about this release](https://github.com/Derivitec/vscode-dotnet-adapter/pull/19)
 
 ## [1.1.0] - 2020-02-18
 ### Added

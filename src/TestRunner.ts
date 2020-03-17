@@ -65,7 +65,12 @@ export class TestRunner {
     }
 
 	private async RunTest(node: DerivitecTestSuiteInfo | DerivitecTestInfo, isDebug: boolean): Promise<void> {
-		const debugController = new DebugController(this.workspace, this.Runningtest, this.log);
+		const debugController = new DebugController(
+			this.workspace,
+			this.configManager,
+			this.Runningtest,
+			this.log
+		);
 
 		const testOutputFile = `${node.sourceDll}${getUid()}.trx`;
 

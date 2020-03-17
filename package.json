@@ -88,6 +88,12 @@
           "default": {},
           "scope": "resource"
         },
+        "dotnetCoreExplorer.attachCpp": {
+          "description": "Attach C++ debugging during test debugging",
+          "type": "boolean",
+          "default": false,
+          "scope": "resource"
+        },
         "dotnetCoreExplorer.codeLens": {
           "description": "enable CodeLens symbol integration with the C# Omnisharp VSCode extension",
           "type": "boolean",
