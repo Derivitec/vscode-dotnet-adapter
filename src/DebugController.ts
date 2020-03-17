@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
 import Command from './Command';
+import { ConfigManager } from './ConfigManager';
 
 interface IDebugRunnerInfo {
-    config: vscode.DebugConfiguration;
+    config: vscode.DebugConfiguration[];
     processId: string;
 }
 
@@ -14,6 +15,7 @@ export class DebugController {
 
     constructor(
         public readonly workspace: vscode.WorkspaceFolder,
+        public readonly configManager: ConfigManager,
         private readonly Runningtest: Command | undefined,
 		private readonly log: Log,
 	){ }
@@ -30,24 +32,48 @@ export class DebugController {
             if (!debugProcess) {
                 debugProcess = {
                     processId: processId,
-                    config: {
-                        name: '.NET Core Attach',
-                        type: 'coreclr',
-                        request: 'attach',
-                        processId: processId,
-                    }
+                    config: [
+                        {
+                            name: '.NET Core Attach',
+                            type: 'coreclr',
+                            request: 'attach',
+                            processId: processId,
+                        },
+                    ],
                 };
+
+                if (this.configManager.get('attachCpp')) {
+                    debugProcess.config.push({
+                        "name": "(gdb) Attach",
+                        "type": "cppdbg",
+                        "request": "attach",
+                        "program": "/usr/share/dotnet/dotnet",
+                        "processId": processId,
+                        "MIMode": "gdb",
+                        "setupCommands": [
+                            {
+                                "description": "Enable pretty-printing for gdb",
+                                "text": "-enable-pretty-printing",
+                                "ignoreFailures": true
+                            }
+                        ]
+                    });
+                }
 
                 this.debugProcesses[processId] = debugProcess;
 
-                await vscode.debug.startDebugging(this.workspace, debugProcess.config).then((b) => {
-                    this.log.info(b.toString());
-                    // When we attach to the debugger it seems to be stuck before loading the actual assembly that's running in code
-                    // This is to try to continue past this invisible break point and into the actual code the user wants to debug
-                    setTimeout(() => {
-                        vscode.commands.executeCommand("workbench.action.debug.continue");
-                    }, 1000);
-                });
+                const configs = debugProcess.config as vscode.DebugConfiguration[];
+
+                const buffers = await Promise.all(
+                    configs.map(config => vscode.debug.startDebugging(this.workspace, config)),
+                );
+
+                buffers.forEach(buffer => this.log.info(buffer.toString()));
+                // When we attach to the debugger it seems to be stuck before loading the actual assembly that's running in code
+                // This is to try to continue past this invisible break point and into the actual code the user wants to debug
+                setTimeout(() => {
+                    vscode.commands.executeCommand("workbench.action.debug.continue");
+                }, 1000);
 
                 const currentSession = vscode.debug.activeDebugSession;
                 if (!currentSession) {
