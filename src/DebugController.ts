@@ -4,7 +4,7 @@ import Command from './Command';
 import { ConfigManager } from './ConfigManager';
 
 interface IDebugRunnerInfo {
-    config: vscode.DebugConfiguration[];
+    config: vscode.DebugConfiguration;
     processId: string;
 }
 
@@ -32,18 +32,14 @@ export class DebugController {
             if (!debugProcess) {
                 debugProcess = {
                     processId: processId,
-                    config: [
-                        {
-                            name: '.NET Core Attach',
-                            type: 'coreclr',
-                            request: 'attach',
-                            processId: processId,
-                        },
-                    ],
-                };
-
-                if (this.configManager.get('attachCpp')) {
-                    debugProcess.config.push({
+                    config: this.configManager.get('attachCpp') ?
+                    {
+                        name: '.NET Core Attach',
+                        type: 'coreclr',
+                        request: 'attach',
+                        processId: processId,
+                    } :
+                    {
                         "name": "(gdb) Attach",
                         "type": "cppdbg",
                         "request": "attach",
@@ -57,18 +53,14 @@ export class DebugController {
                                 "ignoreFailures": true
                             }
                         ]
-                    });
-                }
+                    },
+                };
 
                 this.debugProcesses[processId] = debugProcess;
 
-                const configs = debugProcess.config as vscode.DebugConfiguration[];
+                const buffer = await vscode.debug.startDebugging(this.workspace, debugProcess.config);
 
-                const buffers = await Promise.all(
-                    configs.map(config => vscode.debug.startDebugging(this.workspace, config)),
-                );
-
-                buffers.forEach(buffer => this.log.info(buffer.toString()));
+                this.log.info(buffer.toString());
                 // When we attach to the debugger it seems to be stuck before loading the actual assembly that's running in code
                 // This is to try to continue past this invisible break point and into the actual code the user wants to debug
                 setTimeout(() => {
