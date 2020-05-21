@@ -5,8 +5,8 @@ export default class Command {
 
     public exitCode: Promise<number>;
 
-    constructor(command: string, args: ReadonlyArray<string>, options: SpawnOptions) {
-        this.childProcess = spawn(command, args, options);
+    constructor(command: string, args: ReadonlyArray<string>, { env, ...options }: SpawnOptions) {
+        this.childProcess = spawn(command, args, { ...options, env: { ...process.env, ...env }});
         this.exitCode = new Promise((resolve, reject) => {
             this.childProcess.on('close', resolve);
             this.childProcess.on('error', reject);
