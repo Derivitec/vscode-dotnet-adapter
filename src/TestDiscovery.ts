@@ -191,8 +191,8 @@ export class TestDiscovery {
 		const testListFile = `${file}.txt`;
 		let newFile = false;
 		try {
-			const cacheStat = await fs.stat(vscode.Uri.parse(testListFile));
-			const fileStat = await fs.stat(vscode.Uri.parse(file));
+			const cacheStat = await fs.stat(vscode.Uri.file(testListFile));
+			const fileStat = await fs.stat(vscode.Uri.file(file));
 			if (cacheStat.mtime > fileStat.mtime) {
 				this.loadStatus.addedFromCache += 1;
 				await this.AddtoSuite(file);
@@ -242,7 +242,7 @@ export class TestDiscovery {
     private async AddtoSuite(file: string) {
 		this.log.info(`suite creation: ${file} (starting)`);
 
-		const testFile = vscode.Uri.parse(`${file}.txt`);
+		const testFile = vscode.Uri.file(`${file}.txt`);
 		const output = (await fs.readFile(testFile)).toString()
 		let lines = output.split(/[\n\r]+/);
 
@@ -446,7 +446,7 @@ export class TestDiscovery {
 		const testListFile = `${file}.txt`;
 		this.loadErrors.set(getFileFromPath(file), err);
 		try {
-			await fs.delete(vscode.Uri.parse(testListFile));
+			await fs.delete(vscode.Uri.file(testListFile));
 		} catch (err) {
 			const msg = getErrStr(err);
 			// If the error is due to the file already being deleted, don't raise an error in the log
