@@ -202,8 +202,7 @@ export class TestDiscovery {
 				return;
 			}
 		} catch(err) {
-			const msg = getErrStr(err);
-			if (msg.indexOf('non-existing file') > -1) {
+			if ('code' in err && err.code === 'FileNotFound' || getErrStr(err).indexOf('non-existing file') > -1) {
 				newFile = true;
 				this.log.debug(`No cache file for ${testListFileStr}`);
 			} else {
