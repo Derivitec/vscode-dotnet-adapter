@@ -70,9 +70,8 @@ function updateUnitTestDefinitions(xml: Element, results: TestResult[]): void {
     }
 }
 
-const parseTestResults = async (filePath: string): Promise<TestResult[]> => {
+const parseTestResults = async (fileUri: vscode.Uri): Promise<TestResult[]> => {
     let results: TestResult[];
-    const fileUri = vscode.Uri.file(filePath)
     const data = (await fs.readFile(fileUri)).toString();
     const xdoc = new DOMParser().parseFromString(data, "application/xml");
     results = parseUnitTestResults(xdoc.documentElement);
