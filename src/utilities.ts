@@ -16,6 +16,19 @@ const optimiseGlobPatterns = (patterns: string[]) => {
     return patterns;
 }
 
+const getPatternArray = (patterns: SearchPatterns) => {
+    let patternArray: string[] = [];
+    if (typeof patterns === 'object' && !Array.isArray(patterns)) {
+        patternArray = Object.values(patterns)
+            .reduce((acc, val) => (acc as string[]).concat(val), []) as string[];
+    } else if (typeof patterns === 'string') {
+        patternArray = [patterns];
+    } else if (Array.isArray(patterns)) {
+        patternArray = patterns;
+    }
+    return optimiseGlobPatterns(patternArray);
+}
+
 const plurals = {
     '': 's',
     'is': 'are',
@@ -63,6 +76,7 @@ export {
     getUid,
     createConfigItem,
     optimiseGlobPatterns,
+    getPatternArray,
     plural,
     objToListSentence,
     readFileAsync,

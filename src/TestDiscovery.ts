@@ -1,12 +1,13 @@
 import Command from './Command';
 import * as vscode from 'vscode';
 import { Log } from 'vscode-test-adapter-util';
+import { isMatch } from 'micromatch';
 
 import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
-import { optimiseGlobPatterns, getFileFromPath, getErrStr } from './utilities';
+import { getFileFromPath, getErrStr, getPatternArray } from './utilities';
 
 const fs = vscode.workspace.fs;
 
@@ -14,6 +15,22 @@ enum DISCOVERY_ERROR {
 	VSTEST_STDERR = 'DISCOVERY_ERROR: VSTEST_STDERR',
 	SYMBOL_FILE_EMPTY = 'DISCOVERY_ERROR: SYMBOL_FILE_EMPTY'
 };
+
+type SuiteGroups = { [key: string]: DerivitecTestSuiteInfo };
+
+const hasGrouping = (patterns: SearchPatterns): patterns is GroupedSearchPatterns => typeof patterns === 'object' && !Array.isArray(patterns);
+
+const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: string, prop: keyof (DerivitecTestSuiteInfo | DerivitecTestInfo) = 'id') => {
+	if (!parent) return;
+	const id = parent.children.findIndex(suite => suite[prop] === term);
+	if (id === 0) {
+		parent.children.shift();
+	} else if (id === parent.children.length - 1) {
+		parent.children.pop();
+	} else if (id > -1) {
+		parent.children.splice(id, 1);
+	}
+}
 
 export class TestDiscovery {
 	private Loadingtest: Command | undefined;
@@ -27,8 +44,13 @@ export class TestDiscovery {
 		id: 'root',
 		label: '.Net Core',
 		children: [],
-		sourceDll: 'root'
+		sourceDll: 'root',
+		parent: null,
 	};
+
+	private SuiteGroups?: SuiteGroups;
+
+	private searchPatterns: SearchPatterns = [];
 
 	private watchers?: vscode.FileSystemWatcher[];
 
@@ -53,6 +75,15 @@ export class TestDiscovery {
     public async Load(): Promise<DerivitecTestSuiteInfo> {
 		this.log.info('Loading tests (starting)');
 
+		// Clean up previous listing
+		this.nodeMap.forEach(({ node }) => {
+			const path = node.sourceDll;
+			if (path !== 'root') return this.DetachSuite(path, true);
+			// The suite is a structural suite such as a root note or group
+			removeNodeFromParent(node.parent, node.id);
+		});
+		this.nodeMap.clear();
+
 		this.nodeMap.set(this.SuitesInfo.id, {node: this.SuitesInfo});
 
 		this.output.resetLoaded();
@@ -63,10 +94,30 @@ export class TestDiscovery {
 			this.watchers.map(watcher => watcher.dispose());
 		}
 
-		const searchPatterns = this.configManager.get('searchpatterns');
+		this.searchPatterns = this.configManager.get('searchpatterns');
+
+		if (hasGrouping(this.searchPatterns)) {
+			const groups: SuiteGroups  = {};
+			Object.keys(this.searchPatterns).forEach((key) => {
+				const group: DerivitecTestSuiteInfo = {
+					type: 'suite',
+					id: `group:${key}`,
+					label: key,
+					children: [],
+					sourceDll: 'root',
+					parent: this.SuitesInfo,
+				};
+				this.nodeMap.set(group.id, { node: group });
+				this.SuitesInfo.children.push(group);
+				groups[key] = group;
+			});
+			this.SuiteGroups = groups;
+		}
+
+		const patternArr = getPatternArray(this.searchPatterns);
 
 		this.output.update('Searching for tests');
-		const files = await this.LoadFiles(searchPatterns);
+		const files = await this.LoadFiles(patternArr);
 		this.loadStatus.loaded += files.length;
 		this.output.update(`Loading tests from ${files.length} files`);
 		const stopLoader = this.output.loader();
@@ -98,7 +149,7 @@ export class TestDiscovery {
 		}
 
 		// Create watchers
-		this.watchers = searchPatterns.map(pattern => this.setupWatcher(pattern));
+		this.watchers = patternArr.map(pattern => this.setupWatcher(pattern));
 
 		if (this.SuitesInfo.children.length == 0)
 		{
@@ -126,14 +177,12 @@ export class TestDiscovery {
     private async LoadFiles(searchpatterns: string[]): Promise<string[]> {
 		const stopLoader = this.output.loader();
 		const skipGlob = this.configManager.get('skippattern');
-		const patterns = optimiseGlobPatterns(searchpatterns);
 		let files: string[] = [];
-		for (let i = 0; i < patterns.length; i++) {
-			const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, patterns[i]);
-			for (const file of await vscode.workspace.findFiles(findGlob, skipGlob)) {
-				files.push(file.fsPath);
-			}
-		}
+		await Promise.all(searchpatterns.map(async (pattern) => {
+			const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, pattern);
+			const results = await vscode.workspace.findFiles(findGlob, skipGlob);
+			files.push(...results.map(file => file.fsPath));
+		}));
 		stopLoader();
 		return files;
 	}
@@ -200,16 +249,15 @@ export class TestDiscovery {
 		const pathItems = file.split('/');
 		const fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
 
-		const previousChildCount = this.SuitesInfo.children.length;
-
 		const fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
 			id: fileNamespace,
 			label: fileNamespace,
 			sourceDll: file,
-			children: []
+			children: [],
+			parent: null,
 		};
-		let inserted = false;
+		/* let inserted = false;
 		if (this.nodeMap.has(fileSuite.id)) {
 			this.log.info(`resetting node: ${fileNamespace}`);
 			const suiteIndex = this.ResetSuites(file);
@@ -224,7 +272,7 @@ export class TestDiscovery {
 			this.log.info(`adding node: ${fileNamespace}`);
 			this.SuitesInfo.children.push(fileSuite);
 		}
-		this.nodeMap.set(fileSuite.id, {node: fileSuite});
+		this.nodeMap.set(fileSuite.id, {node: fileSuite}); */
 
 
 		for (const line of lines) {
@@ -248,7 +296,8 @@ export class TestDiscovery {
 						id: classId,
 						label: className,
 						sourceDll: file,
-						children: []
+						children: [],
+						parent: fileSuite,
 					}
 				};
 				this.nodeMap.set(classContext.node.id, classContext);
@@ -261,7 +310,8 @@ export class TestDiscovery {
 				description: line,
 				label: testName,
 				sourceDll: file,
-				skipped: false
+				skipped: false,
+				parent: classContext.node,
 			};
 
 			this.loadStatus.added += 1;
@@ -272,31 +322,89 @@ export class TestDiscovery {
 
 		if (!fileSuite.children.length) {
 			// Nothing has been added, which means there aren't any symbols in this file, delete it in case of error
-			this.log.info(`suite creation:: ${file} was empty (erroring)`);
-			if (previousChildCount !== this.SuitesInfo.children.length) {
+			this.log.info(`suite creation: ${file} was empty (erroring)`);
+			/* if (previousChildCount !== this.SuitesInfo.children.length) {
 				// If AddtoSuite has some how died mid run, adding a corrupt suite, return the array length to pre-add length
 				this.SuitesInfo.children.length = previousChildCount;
-			}
+			} */
 			throw DISCOVERY_ERROR.SYMBOL_FILE_EMPTY;
 		}
-		this.log.info(`suite creation:: ${file} (complete)`);
+		this.log.info(`suite creation: ${file} (complete)`);
+		this.AttachSuite(fileSuite);
+	}
 
+	private GetSuiteGroup(suite: DerivitecTestSuiteInfo) {
+		const groupPair = { name: 'root', group: this.SuitesInfo };
+		const patterns = this.searchPatterns;
+		if (hasGrouping(patterns) && this.SuiteGroups) {
+			const name = Object.keys(patterns).find((groupName) => isMatch(suite.sourceDll, patterns[groupName]));
+			if (!name) return groupPair;
+			return { name, group: this.SuiteGroups[name] };
+		}
+		return groupPair;
+	}
+
+	private AttachSuite(suite: DerivitecTestSuiteInfo) {
+		const { name: parentName, group: parent } = this.GetSuiteGroup(suite);
+		let inserted = false;
+		if (this.nodeMap.has(suite.id)) {
+			const context = this.nodeMap.get(suite.id) as DerivitecSuiteContext;
+			if (context.node.parent === parent) {
+				// Just detach, no removal
+				// Swap suite in place
+				this.DetachSuite(context.node.sourceDll);
+				const suiteIndex = parent.children.findIndex(childSuite => childSuite.sourceDll === suite.sourceDll);
+				if (suiteIndex && suiteIndex > -1) {
+					this.log.info(`replacing node "${suite.id}" in "${parentName}"`);
+					parent.children[suiteIndex] = suite;
+					inserted = true;
+				}
+			} else {
+				this.log.info(`removing node "${suite.id}" from "${parentName}"`);
+				this.DetachSuite(context.node.sourceDll, true);
+			}
+		}
+
+		// Add to new group
+		if (!inserted) {
+			this.log.info(`adding node "${suite.id}" to "${parentName}"`);
+			parent.children.push(suite);
+		}
+		this.nodeMap.set(suite.id, { node: suite });
+		suite.parent = parent;
+
+		/*
+		let inserted = false;
+		if (this.nodeMap.has(fileSuite.id)) {
+			this.log.info(`resetting node: ${fileNamespace}`);
+			const suiteIndex = this.ResetSuites(file);
+			if (suiteIndex > -1) {
+				this.log.info(`replacing node: ${fileNamespace}`);
+				this.SuitesInfo.children[suiteIndex] = fileSuite;
+				inserted = true;
+			}
+		}
+
+		if (!inserted) {
+			this.log.info(`adding node: ${fileNamespace}`);
+			this.SuitesInfo.children.push(fileSuite);
+		}
+		this.nodeMap.set(fileSuite.id, {node: fileSuite});
+		*/
 	}
 
 	/* remove all tests of module fn from Suite */
-	private ResetSuites(fileName: string, removeSuite = false) {
+	private DetachSuite(filePath: string, removeSuite: boolean = false) {
 		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
 		this.nodeMap.forEach((value,key) => {
-			if (value.node.sourceDll === fileName) {
+			if (value.node.sourceDll === filePath) {
 				this.nodeMap.delete(key);
+				// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later
+				if (removeSuite) {
+					removeNodeFromParent(value.node.parent, filePath, 'sourceDll');
+				}
 			}
 		});
-		// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later
-		const suiteIndex = this.SuitesInfo.children.findIndex(suite => suite.sourceDll === fileName);
-		if (removeSuite && suiteIndex > -1) {
-			this.SuitesInfo.children.splice(suiteIndex, 1);
-		}
-		return suiteIndex;
 	}
 
 	private setupWatcher(searchPattern: vscode.GlobPattern) {
@@ -330,7 +438,7 @@ export class TestDiscovery {
 		}
 		watcher.onDidChange(add);
 		watcher.onDidCreate(add);
-		watcher.onDidDelete((uri) => this.ResetSuites(uri.fsPath));
+		watcher.onDidDelete((uri) => this.DetachSuite(uri.fsPath, true));
 		return watcher;
 	}
 

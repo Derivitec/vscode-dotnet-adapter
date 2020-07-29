@@ -7,13 +7,19 @@ type TestInfo = import('vscode-test-adapter-api').TestInfo;
 type TestSuiteEvent = import('vscode-test-adapter-api').TestSuiteEvent;
 type TestEvent = import('vscode-test-adapter-api').TestEvent;
 
+type UngroupedSearchPatterns = string | string[];
+type GroupedSearchPatterns = { [key: string]: UngroupedSearchPatterns };
+type SearchPatterns = UngroupedSearchPatterns | GroupedSearchPatterns;
+
 interface DerivitecTestSuiteInfo extends TestSuiteInfo {
     children: (DerivitecTestSuiteInfo | DerivitecTestInfo)[];
     sourceDll: string;
+    parent: DerivitecTestSuiteInfo | null;
 }
 
 interface DerivitecTestInfo extends TestInfo {
     sourceDll: string;
+    parent: DerivitecTestSuiteInfo | null;
 }
 
 interface DerivitecSuiteContext {
