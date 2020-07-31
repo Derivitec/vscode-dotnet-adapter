@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-
 const toString36 = (num: number) => num.toString(36).substr(2);
 
 const getUid = () => toString36(Math.random()) + toString36(Date.now());
@@ -55,13 +53,6 @@ const objToListSentence = (obj: { [key: string]: number }, ignoreZeros = true) =
     return str;
 }
 
-const readFileAsync = (filePath: string, options?: object) => new Promise((resolve, reject) => {
-    fs.readFile(filePath, { encoding: 'utf8', ...options }, (err, data) => {
-        if (err) return reject(err);
-        resolve(data);
-    });
-});
-
 const getDate = () => new Date().toISOString();
 
 const getFileFromPath = (path: string) => path.substr(path.lastIndexOf('/') + 1);
@@ -79,7 +70,6 @@ export {
     getPatternArray,
     plural,
     objToListSentence,
-    readFileAsync,
     getDate,
     getFileFromPath,
     getErrStr,

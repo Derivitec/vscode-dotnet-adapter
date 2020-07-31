@@ -32,6 +32,8 @@ const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: st
 	}
 }
 
+const getTestFile = (file: vscode.Uri) => file.with({ path: `${file.path}.txt`});
+
 export class TestDiscovery {
 	private Loadingtest: Command | undefined;
 
@@ -123,9 +125,9 @@ export class TestDiscovery {
 		const stopLoader = this.output.loader();
 		for (const file of files) {
 			try {
-				this.log.info(`file: ${file} (loading)`);
+				this.log.info(`file: ${file.fsPath} (loading)`);
 				await this.SetTestSuiteInfo(file);
-				this.log.info(`file: ${file} (load complete)`);
+				this.log.info(`file: ${file.fsPath} (load complete)`);
 			} catch (e) {
 				this.log.error(e);
 				throw e;
@@ -174,37 +176,37 @@ export class TestDiscovery {
 		await this.Loadingtest.exitCode;
 	}
 
-    private async LoadFiles(searchpatterns: string[]): Promise<string[]> {
+    private async LoadFiles(searchpatterns: string[]): Promise<vscode.Uri[]> {
 		const stopLoader = this.output.loader();
 		const skipGlob = this.configManager.get('skippattern');
-		let files: string[] = [];
+		let files: vscode.Uri[] = [];
 		await Promise.all(searchpatterns.map(async (pattern) => {
 			const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, pattern);
 			const results = await vscode.workspace.findFiles(findGlob, skipGlob);
-			files.push(...results.map(file => file.fsPath));
+			files.push(...results);
 		}));
 		stopLoader();
 		return files;
 	}
 
-    private async SetTestSuiteInfo(file: string): Promise<void> {
-		const testListFile = `${file}.txt`;
+    private async SetTestSuiteInfo(file: vscode.Uri): Promise<void> {
+		const testListFile = getTestFile(file);
+		const testListFileStr = testListFile.fsPath;
 		let newFile = false;
 		try {
-			const cacheStat = await fs.stat(vscode.Uri.parse(testListFile));
-			const fileStat = await fs.stat(vscode.Uri.parse(file));
+			const cacheStat = await fs.stat(testListFile);
+			const fileStat = await fs.stat(file);
 			if (cacheStat.mtime > fileStat.mtime) {
 				this.loadStatus.addedFromCache += 1;
 				await this.AddtoSuite(file);
 				return;
 			}
 		} catch(err) {
-			const msg = getErrStr(err);
-			if (msg.indexOf('non-existing file') > -1) {
+			if ('code' in err && err.code === 'FileNotFound' || getErrStr(err).indexOf('non-existing file') > -1) {
 				newFile = true;
-				this.log.debug(`No cache file for ${testListFile}`);
+				this.log.debug(`No cache file for ${testListFileStr}`);
 			} else {
-				this.log.error(`Unable to check for a cache file for ${testListFile}; Encountered: ${err}`);
+				this.log.error(`Unable to check for a cache file for ${testListFileStr}; Encountered: ${err}`);
 				this.handleLoadError(file, err);
 			}
 		}
@@ -212,9 +214,9 @@ export class TestDiscovery {
 		let error = false;
 		const args: string[] = [
 			'vstest',
-			file,
+			file.fsPath,
 			'/ListFullyQualifiedTests',
-			`/ListTestsTargetPath:${testListFile}`
+			`/ListTestsTargetPath:${testListFileStr}`
 		];
 		this.log.debug(`execute: dotnet ${args.join(' ')} (starting)`);
 		this.Loadingtest = new Command('dotnet', args, { cwd: this.workspace.uri.fsPath});
@@ -239,14 +241,15 @@ export class TestDiscovery {
 		}
     }
 
-    private async AddtoSuite(file: string) {
-		this.log.info(`suite creation: ${file} (starting)`);
+    private async AddtoSuite(file: vscode.Uri) {
+		const fileStr = file.fsPath;
+		this.log.info(`suite creation: ${fileStr} (starting)`);
 
-		const testFile = vscode.Uri.parse(`${file}.txt`);
+		const testFile = getTestFile(file);
 		const output = (await fs.readFile(testFile)).toString()
 		let lines = output.split(/[\n\r]+/);
 
-		const pathItems = file.split('/');
+		const pathItems = fileStr.split('/');
 		const fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
 
 		const fileSuite: DerivitecTestSuiteInfo = {
@@ -322,22 +325,27 @@ export class TestDiscovery {
 
 		if (!fileSuite.children.length) {
 			// Nothing has been added, which means there aren't any symbols in this file, delete it in case of error
-			this.log.info(`suite creation: ${file} was empty (erroring)`);
+			this.log.info(`suite creation: ${fileStr} was empty (erroring)`);
 			/* if (previousChildCount !== this.SuitesInfo.children.length) {
 				// If AddtoSuite has some how died mid run, adding a corrupt suite, return the array length to pre-add length
 				this.SuitesInfo.children.length = previousChildCount;
 			} */
 			throw DISCOVERY_ERROR.SYMBOL_FILE_EMPTY;
 		}
-		this.log.info(`suite creation: ${file} (complete)`);
+		this.log.info(`suite creation: ${fileStr} (complete)`);
 		this.AttachSuite(fileSuite);
 	}
 
 	private GetSuiteGroup(suite: DerivitecTestSuiteInfo) {
 		const groupPair = { name: 'root', group: this.SuitesInfo };
 		const patterns = this.searchPatterns;
+		const filePath = suite.sourceDll;
+		if (filePath === 'root') {
+			// Unlikely to happen, but this is a structual suite and cannot be part of a group
+			return groupPair;
+		}
 		if (hasGrouping(patterns) && this.SuiteGroups) {
-			const name = Object.keys(patterns).find((groupName) => isMatch(suite.sourceDll, patterns[groupName]));
+			const name = Object.keys(patterns).find((groupName) => isMatch(filePath.fsPath, patterns[groupName]));
 			if (!name) return groupPair;
 			return { name, group: this.SuiteGroups[name] };
 		}
@@ -345,6 +353,8 @@ export class TestDiscovery {
 	}
 
 	private AttachSuite(suite: DerivitecTestSuiteInfo) {
+		const filePath = suite.sourceDll;
+		if (filePath === 'root') throw Error('Cannot attach structual suite.');
 		const { name: parentName, group: parent } = this.GetSuiteGroup(suite);
 		let inserted = false;
 		if (this.nodeMap.has(suite.id)) {
@@ -352,14 +362,14 @@ export class TestDiscovery {
 			if (context.node.parent === parent) {
 				// Just detach, no removal
 				// Swap suite in place
-				this.DetachSuite(context.node.sourceDll);
+				this.DetachSuite(filePath);
 				const suiteIndex = parent.children.findIndex(childSuite => childSuite.sourceDll === suite.sourceDll);
 				if (suiteIndex && suiteIndex > -1) {
 					this.log.info(`replacing node "${suite.id}" in "${parentName}"`);
 					parent.children[suiteIndex] = suite;
 					inserted = true;
 				}
-			} else {
+			} else if (context.node.sourceDll !== 'root') {
 				this.log.info(`removing node "${suite.id}" from "${parentName}"`);
 				this.DetachSuite(context.node.sourceDll, true);
 			}
@@ -394,7 +404,8 @@ export class TestDiscovery {
 	}
 
 	/* remove all tests of module fn from Suite */
-	private DetachSuite(filePath: string, removeSuite: boolean = false) {
+	private DetachSuite(file: vscode.Uri, removeSuite: boolean = false) {
+		const filePath = file.toString();
 		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
 		this.nodeMap.forEach((value,key) => {
 			if (value.node.sourceDll === filePath) {
@@ -413,12 +424,13 @@ export class TestDiscovery {
 			if (typeof this.Loadingtest !== 'undefined') await this.Loadingtest.exitCode;
 			const finish = await this.testExplorer.load();
 			const file = getFileFromPath(uri.fsPath);
+			const uriStr = uri.toString();
 			this.output.resetLoaded()
 			this.loadStatus.loaded += 1;
 			try {
-				await this.SetTestSuiteInfo(uri.fsPath);
-				if (this.loadErrors.size > 0 && this.loadErrors.has(file)) {
-					const loadError = this.loadErrors.get(file);
+				await this.SetTestSuiteInfo(uri);
+				if (this.loadErrors.size > 0 && this.loadErrors.has(uriStr)) {
+					const loadError = this.loadErrors.get(uriStr);
 					let err = `An error occurred while loading ${file}: `;
 					if (loadError === DISCOVERY_ERROR.VSTEST_STDERR) {
 						err += 'See ".NET Core Test Output" pane for details.';
@@ -438,20 +450,20 @@ export class TestDiscovery {
 		}
 		watcher.onDidChange(add);
 		watcher.onDidCreate(add);
-		watcher.onDidDelete((uri) => this.DetachSuite(uri.fsPath, true));
+		watcher.onDidDelete((uri) => this.DetachSuite(uri, true));
 		return watcher;
 	}
 
-	private async handleLoadError(file: string, err: unknown) {
-		const testListFile = `${file}.txt`;
-		this.loadErrors.set(getFileFromPath(file), err);
+	private async handleLoadError(file: vscode.Uri, err: unknown) {
+		const testListFile = getTestFile(file);
+		this.loadErrors.set(file.toString(), err);
 		try {
-			await fs.delete(vscode.Uri.parse(testListFile));
+			await fs.delete(testListFile);
 		} catch (err) {
 			const msg = getErrStr(err);
 			// If the error is due to the file already being deleted, don't raise an error in the log
 			if (msg.indexOf('non-existing file') === -1) {
-				this.log.error(`Unable to delete ${testListFile}: ${msg}`);
+				this.log.error(`Unable to delete ${testListFile.fsPath}: ${msg}`);
 			}
 		}
 	}

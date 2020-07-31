@@ -72,16 +72,18 @@ export class TestRunner {
 			this.log
 		);
 
-		const testOutputFile = `${node.sourceDll}${getUid()}.trx`;
+		if (node.sourceDll === 'root') throw TypeError('Cannot test root suite directly.');
+
+		const testOutputFile = node.sourceDll.with({ path: `${node.sourceDll.path}${getUid()}.trx` });
 
 		const envVars = this.configManager.get('runEnvVars');
 		const args: string[] = [];
 		args.push('vstest');
-		args.push(node.sourceDll);
-		if (!node.sourceDll.endsWith(`${node.id}.dll`))
+		args.push(node.sourceDll.fsPath);
+		if (!node.sourceDll.fsPath.endsWith(`${node.id}.dll`))
 			args.push(`--Tests:${node.id}`);
 		args.push('--Parallel');
-		args.push(`--logger:trx;LogFileName=${testOutputFile}`);
+		args.push(`--logger:trx;LogFileName=${testOutputFile.fsPath}`);
 		this.TriggerRunningEvents(node);
 		const { print, finish } = this.output.getTestOutputHandler(node.type === 'test' ? getMethodName(node.id) : node.id);
 		this.Runningtest = new Command(
@@ -144,7 +146,7 @@ export class TestRunner {
 	}
 
 
-	private async ParseTestResults(node: DerivitecTestSuiteInfo | DerivitecTestInfo, testOutputFile: string): Promise<void> {
+	private async ParseTestResults(node: DerivitecTestSuiteInfo | DerivitecTestInfo, testOutputFile: vscode.Uri): Promise<void> {
 		const results = await parseTestResults(testOutputFile);
 		const testContexts = this.GetTestsFromNode(node);
 		const testContextsMap = new Map(testContexts.map(i => [i.node.id, i]));

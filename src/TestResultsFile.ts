@@ -1,9 +1,10 @@
 "use strict";
-import * as fs from "fs";
+import * as vscode from 'vscode';
 //@ts-ignore
 import { DOMParser, Element, Node } from "xmldom";
 import { TestResult } from "./TestResult";
-import { readFileAsync } from './utilities';
+
+const fs = vscode.workspace.fs;
 
 function findChildElement(node: Node, name: string): Node {
     let child = node.firstChild;
@@ -69,16 +70,16 @@ function updateUnitTestDefinitions(xml: Element, results: TestResult[]): void {
     }
 }
 
-const parseTestResults = async (filePath: string): Promise<TestResult[]> => {
+const parseTestResults = async (fileUri: vscode.Uri): Promise<TestResult[]> => {
     let results: TestResult[];
-    const data = await readFileAsync(filePath);
+    const data = (await fs.readFile(fileUri)).toString();
     const xdoc = new DOMParser().parseFromString(data, "application/xml");
     results = parseUnitTestResults(xdoc.documentElement);
 
     updateUnitTestDefinitions(xdoc.documentElement, results);
 
     try {
-        fs.unlinkSync(filePath);
+        await fs.delete(fileUri);
     } catch {}
 
     return results;
