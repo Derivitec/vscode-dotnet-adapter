@@ -5,7 +5,7 @@ export default class Command {
 
     public exitCode: Promise<number>;
 
-    private exitCodeRelease?: () => void;
+    private exitCodeRelease?: (exitCode: number) => void;
 
     constructor(command: string, args: ReadonlyArray<string>, { env, ...options }: SpawnOptions) {
         this.childProcess = spawn(command, args, { ...options, env: { ...process.env, ...env }});
@@ -33,6 +33,6 @@ export default class Command {
         this.childProcess.stdout?.removeAllListeners();
         this.childProcess.stderr?.removeAllListeners();
         if (!this.childProcess.killed) this.childProcess.kill();
-        if (this.exitCodeRelease) this.exitCodeRelease();
+        if (this.exitCodeRelease) this.exitCodeRelease(-1);
     }
 }
