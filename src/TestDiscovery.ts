@@ -407,8 +407,8 @@ export class TestDiscovery {
 		});
 	}
 
-	private setupWatcher(searchPattern: vscode.GlobPattern) {
-		const watcher = vscode.workspace.createFileSystemWatcher(searchPattern);
+	private setupWatcher(searchPattern: string) {
+		const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(this.workspace.uri.fsPath, searchPattern));
 		const add = async (uri: vscode.Uri) => {
 			if (typeof this.Loadingtest !== 'undefined') await this.Loadingtest.exitCode;
 			const finish = await this.testExplorer.load();
