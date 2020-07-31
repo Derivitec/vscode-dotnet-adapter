@@ -7,7 +7,8 @@ const schema = {
     logpanel: c<boolean>({ default: false }),
     codeLens: c<boolean>({ default: true }),
     runEnvVars: c<object>({ default: {} }),
-    searchpatterns: c<string[]>({ default: [], required: true }),
+    searchpatterns: c<SearchPatterns>({ default: [],
+        typecheck: (value) => typeof value === 'object' || typeof value === 'string', required: true }),
     skippattern: c<string>({ default: '' }),
 };
 

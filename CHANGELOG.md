@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2020-07-31
+### Added
+- `searchpatterns` now additionally accepts an object to allow test grouping. Check the updated README for usage information. [(#31)](https://github.com/Derivitec/vscode-dotnet-adapter/pull/31)
+
+### Fixed
+- State management is not updated correctly when a test run is cancelled [(#30)](https://github.com/Derivitec/vscode-dotnet-adapter/issues/30)
+
+### Changed
+- File watchers are now aligned with the search performed in the initial discovery phase
+
 ## [1.3.3] - 2020-05-21
 ### Fixed
 - Test commands were run without the local environment (including PATH). This caused issues using the adapter locally in macOS.

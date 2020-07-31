@@ -37,6 +37,8 @@
     "publish": "vsce publish"
   },
   "dependencies": {
+    "@types/micromatch": "^4.0.1",
+    "micromatch": "^4.0.2",
     "tslib": "^1.9.3",
     "vscode-test-adapter-api": "^1.1.0",
     "vscode-test-adapter-util": "^0.5.1",
@@ -69,14 +71,16 @@
           "scope": "resource"
         },
         "dotnetCoreExplorer.searchpatterns": {
-          "description": "array of your test files or directory (relative to the workspace folder)",
-          "type": "array",
+          "description": "A string, array or object of search patterns which match your test files (relative to the workspace folder).\n\nArrays can be used to specify multiple differing patterns. Objects can be used to provide test grouping, where the key is the group name and the value is either a glob pattern string or an array of glob pattern strings.",
+          "type": [
+            "string",
+            "array",
+            "object"
+          ],
           "items": {
             "type": "string"
           },
-          "default": [
-            "**/bin/**/*.{dll,exe}"
-          ],
+          "default": "**/bin/**/*.{dll,exe}",
           "scope": "resource"
         },
         "dotnetCoreExplorer.runEnvVars": {

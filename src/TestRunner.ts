@@ -46,7 +46,7 @@ export class TestRunner {
             if (this.Runningtest) return;
             this.log.info(`Running tests ${JSON.stringify(tests)}`);
 
-            if (tests[0] == 'root') {
+            if (tests[0] == 'root' || tests[0].startsWith('group:')) {
                 let nodeContext = this.nodeMap.get(tests[0]) as DerivitecSuiteContext;
                 tests = nodeContext?.node.children.map(i => i.id);
             }
