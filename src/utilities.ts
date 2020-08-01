@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 const toString36 = (num: number) => num.toString(36).substr(2);
 
 const getUid = () => toString36(Math.random()) + toString36(Date.now());
@@ -57,10 +59,15 @@ const getDate = () => new Date().toISOString();
 
 const getFileFromPath = (path: string) => path.substr(path.lastIndexOf('/') + 1);
 
-const getErrStr = (err: any) => {
-    if (err instanceof Error) return err.message;
-    if (typeof err === 'string') return err;
-    return err.toString();
+const normaliseError = (err: any): { name: string, message: string } => {
+    const unknownName = 'Unknown';
+    const unknownMessage = 'An unknown error occurred';
+    if (err instanceof Error) return err;
+    if (err === null) return { name: 'NULL', message: 'A null value was returned' };
+    if (typeof err === 'object' && (!('name' in err) || !('message' in err))) return Object.assign(err, { name: err.name || unknownName, message: err.message || unknownMessage });
+    if (typeof err === 'object') return err;
+    if (typeof err === 'string') return { name: err, message: err };
+    return { name: unknownName, message: unknownMessage };
 }
 
 export {
@@ -72,5 +79,5 @@ export {
     objToListSentence,
     getDate,
     getFileFromPath,
-    getErrStr,
+    normaliseError,
 }

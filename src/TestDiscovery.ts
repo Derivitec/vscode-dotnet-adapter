@@ -7,7 +7,7 @@ import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
 import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
-import { getFileFromPath, getErrStr, getPatternArray } from './utilities';
+import { getFileFromPath, normaliseError, getPatternArray } from './utilities';
 
 const fs = vscode.workspace.fs;
 
@@ -33,6 +33,11 @@ const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: st
 }
 
 const getTestFile = (file: vscode.Uri) => file.with({ path: `${file.path}.txt`});
+
+const isFileNotFound = (err: unknown) => {
+	const errObj = normaliseError(err);
+	return ('name' in errObj && errObj.name.startsWith('EntryNotFound')) || errObj.message.indexOf('non-existing file') > -1;
+}
 
 export class TestDiscovery {
 	private Loadingtest: Command | undefined;
@@ -202,7 +207,7 @@ export class TestDiscovery {
 				return;
 			}
 		} catch(err) {
-			if ('code' in err && err.code === 'FileNotFound' || getErrStr(err).indexOf('non-existing file') > -1) {
+			if (isFileNotFound(err)) {
 				newFile = true;
 				this.log.debug(`No cache file for ${testListFileStr}`);
 			} else {
@@ -460,10 +465,10 @@ export class TestDiscovery {
 		try {
 			await fs.delete(testListFile);
 		} catch (err) {
-			const msg = getErrStr(err);
 			// If the error is due to the file already being deleted, don't raise an error in the log
-			if (msg.indexOf('non-existing file') === -1) {
-				this.log.error(`Unable to delete ${testListFile.fsPath}: ${msg}`);
+			const errObj = normaliseError(err);
+			if (isFileNotFound(errObj)) {
+				this.log.error(`Unable to delete ${testListFile.fsPath}: ${errObj.message}`);
 			}
 		}
 	}
