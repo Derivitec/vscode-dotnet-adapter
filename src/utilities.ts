@@ -62,8 +62,7 @@ const getFileFromPath = (path: string) => path.substr(path.lastIndexOf('/') + 1)
 const normaliseError = (err: any): { name: string, message: string } => {
     const unknownName = 'Unknown';
     const unknownMessage = 'An unknown error occurred';
-    if (err instanceof vscode.FileSystemError) return err;
-    if (err instanceof Error) return Object.assign(err, { name: unknownName });
+    if (err instanceof Error) return err;
     if (err === null) return { name: 'NULL', message: 'A null value was returned' };
     if (typeof err === 'object' && (!('name' in err) || !('message' in err))) return Object.assign(err, { name: err.name || unknownName, message: err.message || unknownMessage });
     if (typeof err === 'object') return err;
