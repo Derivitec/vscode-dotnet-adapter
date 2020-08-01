@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2020-08-01
+### Fixed
+- Fix adapter breaking error handling in edge case scenarios [(#34)](https://github.com/Derivitec/vscode-dotnet-adapter/pull/34)
+
 ## [1.4.1] - 2020-07-31
 ### Fixed
 - Improve cross-platform and remote development compatibility during file operations [(#29)](https://github.com/Derivitec/vscode-dotnet-adapter/pull/29)
