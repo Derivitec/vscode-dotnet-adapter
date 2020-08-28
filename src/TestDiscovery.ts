@@ -1,5 +1,6 @@
 import Command from './Command';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Log } from 'vscode-test-adapter-util';
 import { isMatch } from 'micromatch';
 
@@ -16,7 +17,7 @@ enum DISCOVERY_ERROR {
 	SYMBOL_FILE_EMPTY = 'DISCOVERY_ERROR: SYMBOL_FILE_EMPTY'
 };
 
-type SuiteGroups = { [key: string]: DerivitecTestSuiteInfo };
+type SuiteGroups = { [key: string]: DerivitecTestSuiteInfo; };
 
 const hasGrouping = (patterns: SearchPatterns): patterns is GroupedSearchPatterns => typeof patterns === 'object' && !Array.isArray(patterns);
 
@@ -30,14 +31,14 @@ const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: st
 	} else if (id > -1) {
 		parent.children.splice(id, 1);
 	}
-}
+};
 
-const getTestFile = (file: vscode.Uri) => file.with({ path: `${file.path}.txt`});
+const getTestFile = (file: vscode.Uri) => file.with({ path: `${file.path}.txt` });
 
 const isFileNotFound = (err: unknown) => {
 	const errObj = normaliseError(err);
 	return ('name' in errObj && errObj.name.startsWith('EntryNotFound')) || errObj.message.indexOf('non-existing file') > -1;
-}
+};
 
 export class TestDiscovery {
 	private Loadingtest: Command | undefined;
@@ -46,7 +47,7 @@ export class TestDiscovery {
 
 	private loadErrors = new Map<string, unknown>();
 
-    private SuitesInfo: DerivitecTestSuiteInfo = {
+	private SuitesInfo: DerivitecTestSuiteInfo = {
 		type: 'suite',
 		id: 'root',
 		label: '.Net Core',
@@ -61,7 +62,7 @@ export class TestDiscovery {
 
 	private watchers?: vscode.FileSystemWatcher[];
 
-    constructor(
+	constructor(
 		private readonly workspace: vscode.WorkspaceFolder,
 		private readonly nodeMap: Map<string, DerivitecSuiteContext | DerivitecTestContext>,
 		private readonly output: OutputManager,
@@ -69,17 +70,17 @@ export class TestDiscovery {
 		private readonly codeLens: CodeLensProcessor,
 		private readonly testExplorer: TestExplorer,
 		private readonly log: Log,
-	){
+	) {
 		this.loadStatus = this.output.loaded;
-    }
+	}
 
-    public GetNode(id: string): DerivitecSuiteContext | DerivitecTestContext {
-        const node = this.nodeMap.get(id);
-        if (!node) throw `Test node '${id}' could not be found!`
-        return node;
-    }
+	public GetNode(id: string): DerivitecSuiteContext | DerivitecTestContext {
+		const node = this.nodeMap.get(id);
+		if (!node) throw `Test node '${id}' could not be found!`;
+		return node;
+	}
 
-    public async Load(): Promise<DerivitecTestSuiteInfo> {
+	public async Load(): Promise<DerivitecTestSuiteInfo> {
 		this.log.info('Loading tests (starting)');
 
 		// Clean up previous listing
@@ -91,7 +92,7 @@ export class TestDiscovery {
 		});
 		this.nodeMap.clear();
 
-		this.nodeMap.set(this.SuitesInfo.id, {node: this.SuitesInfo});
+		this.nodeMap.set(this.SuitesInfo.id, { node: this.SuitesInfo });
 
 		this.output.resetLoaded();
 
@@ -104,7 +105,7 @@ export class TestDiscovery {
 		this.searchPatterns = this.configManager.get('searchpatterns');
 
 		if (hasGrouping(this.searchPatterns)) {
-			const groups: SuiteGroups  = {};
+			const groups: SuiteGroups = {};
 			Object.keys(this.searchPatterns).forEach((key) => {
 				const group: DerivitecTestSuiteInfo = {
 					type: 'suite',
@@ -141,7 +142,7 @@ export class TestDiscovery {
 		stopLoader();
 
 		if (this.loadErrors.size > 0) {
-			this.output.update(`Encountered errors in ${this.loadErrors.size} files during loading.`)
+			this.output.update(`Encountered errors in ${this.loadErrors.size} files during loading.`);
 			const errArr = Array.from(this.loadErrors.entries());
 			if (errArr.some(([file, err]) => err === DISCOVERY_ERROR.VSTEST_STDERR)) {
 				this.output.update(`Some of these errors were encountered by vstest. See ".NET Core Test Output" pane for details.`);
@@ -158,8 +159,7 @@ export class TestDiscovery {
 		// Create watchers
 		this.watchers = patternArr.map(pattern => this.setupWatcher(pattern));
 
-		if (this.SuitesInfo.children.length == 0)
-		{
+		if (this.SuitesInfo.children.length == 0) {
 			const errorMsg = 'No tests found, check the SearchPattern in the extension settings.';
 			this.log.error(errorMsg);
 			throw errorMsg;
@@ -172,7 +172,7 @@ export class TestDiscovery {
 
 		this.log.info('Loading tests (complete)');
 		return this.SuitesInfo;
-    }
+	}
 
 
 	private async StopLoading(): Promise<void> {
@@ -181,7 +181,7 @@ export class TestDiscovery {
 		await this.Loadingtest.exitCode;
 	}
 
-    private async LoadFiles(searchpatterns: string[]): Promise<vscode.Uri[]> {
+	private async LoadFiles(searchpatterns: string[]): Promise<vscode.Uri[]> {
 		const stopLoader = this.output.loader();
 		const skipGlob = this.configManager.get('skippattern');
 		let files: vscode.Uri[] = [];
@@ -194,7 +194,7 @@ export class TestDiscovery {
 		return files;
 	}
 
-    private async SetTestSuiteInfo(file: vscode.Uri): Promise<void> {
+	private async SetTestSuiteInfo(file: vscode.Uri): Promise<void> {
 		const testListFile = getTestFile(file);
 		const testListFileStr = testListFile.fsPath;
 		let newFile = false;
@@ -206,7 +206,7 @@ export class TestDiscovery {
 				await this.AddtoSuite(file);
 				return;
 			}
-		} catch(err) {
+		} catch (err) {
 			if (isFileNotFound(err)) {
 				newFile = true;
 				this.log.debug(`No cache file for ${testListFileStr}`);
@@ -224,11 +224,11 @@ export class TestDiscovery {
 			`/ListTestsTargetPath:${testListFileStr}`
 		];
 		this.log.debug(`execute: dotnet ${args.join(' ')} (starting)`);
-		this.Loadingtest = new Command('dotnet', args, { cwd: this.workspace.uri.fsPath});
+		this.Loadingtest = new Command('dotnet', args, { cwd: this.workspace.uri.fsPath });
 		this.output.connectCommand(this.Loadingtest);
 		this.Loadingtest.onStdErr(() => {
 			error = true;
-		})
+		});
 		try {
 			const code = await this.Loadingtest.exitCode;
 			if (error) throw DISCOVERY_ERROR.VSTEST_STDERR;
@@ -244,18 +244,17 @@ export class TestDiscovery {
 			if (this.Loadingtest) this.Loadingtest.dispose();
 			this.Loadingtest = undefined;
 		}
-    }
+	}
 
-    private async AddtoSuite(file: vscode.Uri) {
+	private async AddtoSuite(file: vscode.Uri) {
 		const fileStr = file.fsPath;
 		this.log.info(`suite creation: ${fileStr} (starting)`);
 
 		const testFile = getTestFile(file);
-		const output = (await fs.readFile(testFile)).toString()
+		const output = (await fs.readFile(testFile)).toString();
 		let lines = output.split(/[\n\r]+/);
 
-		const pathItems = fileStr.split('/');
-		const fileNamespace = pathItems[pathItems.length - 1].replace(".dll", "");
+		const fileNamespace = path.parse(fileStr).base.replace(/(\.dll|\.exe)$/gi, "");
 
 		const fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
@@ -297,7 +296,7 @@ export class TestDiscovery {
 			const classId = `${namespace}.${className}`;
 			let classContext = this.nodeMap.get(classId) as DerivitecSuiteContext;
 
-			if(!classContext)	{
+			if (!classContext) {
 				classContext = {
 					node: {
 						type: 'suite',
@@ -324,7 +323,7 @@ export class TestDiscovery {
 
 			this.loadStatus.added += 1;
 			this.log.info(`adding node: ${line}`);
-			this.nodeMap.set(testInfo.id, {node: testInfo});
+			this.nodeMap.set(testInfo.id, { node: testInfo });
 			classContext.node.children.push(testInfo);
 		}
 
@@ -412,7 +411,7 @@ export class TestDiscovery {
 	private DetachSuite(file: vscode.Uri, removeSuite: boolean = false) {
 		const filePath = file.toString();
 		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
-		this.nodeMap.forEach((value,key) => {
+		this.nodeMap.forEach((value, key) => {
 			if (value.node.sourceDll === filePath) {
 				this.nodeMap.delete(key);
 				// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later
@@ -430,7 +429,7 @@ export class TestDiscovery {
 			const finish = await this.testExplorer.load();
 			const file = getFileFromPath(uri.fsPath);
 			const uriStr = uri.toString();
-			this.output.resetLoaded()
+			this.output.resetLoaded();
 			this.loadStatus.loaded += 1;
 			try {
 				await this.SetTestSuiteInfo(uri);
@@ -452,7 +451,7 @@ export class TestDiscovery {
 			} catch (e) {
 				finish.fail(e);
 			}
-		}
+		};
 		watcher.onDidChange(add);
 		watcher.onDidCreate(add);
 		watcher.onDidDelete((uri) => this.DetachSuite(uri, true));

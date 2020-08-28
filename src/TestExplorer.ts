@@ -7,7 +7,7 @@ import QueueManager from './QueueManager';
 
 type CompletionHandle<T> = (data: T) => void;
 
-type CompletionHandleWithFailure<T, P> = { pass: CompletionHandle<T>, fail: CompletionHandle<P> };
+type CompletionHandleWithFailure<T, P> = { pass: CompletionHandle<T>, fail: CompletionHandle<P>; };
 
 enum OP_TYPE { LOAD, RUN };
 const opPriority = [OP_TYPE.RUN, OP_TYPE.LOAD];
@@ -15,13 +15,11 @@ const opPriority = [OP_TYPE.RUN, OP_TYPE.LOAD];
 type LoadState = 'none' | 'started' | 'finished';
 
 export default class TestExplorer {
-    private disposables: { dispose(): void }[] = [];
+    private disposables: { dispose(): void; }[] = [];
 
-    private readonly testsEmitter =
-        new vscode.EventEmitter<TestLoadStartedEvent | TestLoadFinishedEvent>();
+    private readonly testsEmitter = new vscode.EventEmitter<TestLoadStartedEvent | TestLoadFinishedEvent>();
 
-	private readonly testStatesEmitter = new vscode.EventEmitter<TestRunStartedEvent |
-        TestRunFinishedEvent | TestSuiteEvent | TestEvent>();
+    private readonly testStatesEmitter = new vscode.EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>();
 
     private readonly autorunEmitter = new vscode.EventEmitter<void>();
 
@@ -42,15 +40,15 @@ export default class TestExplorer {
         );
     }
 
-	get tests(): vscode.Event<TestLoadStartedEvent | TestLoadFinishedEvent> {
-		return this.testsEmitter.event;
-	}
-	get testStates(): vscode.Event<TestRunStartedEvent | TestRunFinishedEvent |
-		TestSuiteEvent | TestEvent> {
-		return this.testStatesEmitter.event;
-	}
-	get autorun(): vscode.Event<void> | undefined {
-		return this.autorunEmitter.event;
+    get tests(): vscode.Event<TestLoadStartedEvent | TestLoadFinishedEvent> {
+        return this.testsEmitter.event;
+    }
+    get testStates(): vscode.Event<TestRunStartedEvent | TestRunFinishedEvent |
+        TestSuiteEvent | TestEvent> {
+        return this.testStatesEmitter.event;
+    }
+    get autorun(): vscode.Event<void> | undefined {
+        return this.autorunEmitter.event;
     }
 
     get testsRunning() {
@@ -77,7 +75,7 @@ export default class TestExplorer {
             this.loadState = 'finished';
             this.testsEmitter.fire(data);
             release();
-        }
+        };
         return {
             pass: (suite: DerivitecTestSuiteInfo) => finish({ type: 'finished', suite }),
             fail: (errorMessage: string) => finish({ type: 'finished', errorMessage })
@@ -90,14 +88,14 @@ export default class TestExplorer {
         // Add tests to the run pool to allow proper cancellation handling later
         tests.forEach(test => this.runPool.add(test));
         const release = await this.queueManager.acquireSlot(OP_TYPE.RUN);
-		return () => {
+        return () => {
             // Remove tests from the run pool
             tests.forEach(test => this.runPool.delete(test));
             if (this.queueManager.count[OP_TYPE.RUN] === 0) {
                 this.testStatesEmitter.fire(<TestRunFinishedEvent>{ type: 'finished' });
             }
             release();
-        }
+        };
     }
 
     cancelAllRuns() {
@@ -122,6 +120,6 @@ export default class TestExplorer {
 
     dispose(): void {
         this.disposables.forEach(disposable => disposable.dispose());
-		this.disposables = [];
+        this.disposables = [];
     }
 }
