@@ -301,7 +301,12 @@ export class TestDiscovery {
 			const namespace = line.replace(`.${className}.${testName}`, "");
 
 			const classId = `${namespace}.${className}`;
-			let classContext = this.nodeMap.get(classId) as DerivitecSuiteContext;
+			let classContext = this.nodeMap.get(classId) as DerivitecSuiteContext | undefined;
+
+			if (classContext && classContext.node.parent !== fileSuite) {
+				// We need to replace a stale class context
+				classContext = undefined;
+			}
 
 			if (!classContext) {
 				classContext = {
@@ -315,9 +320,6 @@ export class TestDiscovery {
 					}
 				};
 				this.nodeMap.set(classContext.node.id, classContext);
-			}
-
-			if (!fileSuite.children.includes(classContext.node)) {
 				fileSuite.children.push(classContext.node);
 			}
 
