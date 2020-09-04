@@ -19,11 +19,16 @@ enum DISCOVERY_ERROR {
 
 type SuiteGroups = { [key: string]: DerivitecTestSuiteInfo; };
 
+const uriEquals = (a: vscode.Uri, b: vscode.Uri) => Object.entries(a).every(([key, value]) => key.startsWith('_') || value === b[key as keyof vscode.Uri]);
+
 const hasGrouping = (patterns: SearchPatterns): patterns is GroupedSearchPatterns => typeof patterns === 'object' && !Array.isArray(patterns);
 
-const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: string, prop: keyof (DerivitecTestSuiteInfo | DerivitecTestInfo) = 'id') => {
+const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: string | vscode.Uri, prop: keyof (DerivitecTestSuiteInfo | DerivitecTestInfo) = 'id') => {
 	if (!parent) return;
-	const id = parent.children.findIndex(suite => suite[prop] === term);
+	const id = parent.children.findIndex(
+		suite => (typeof suite[prop] === 'string' && typeof term === 'string' && suite[prop] === term)
+		|| (suite[prop] instanceof vscode.Uri && term instanceof vscode.Uri && uriEquals(suite[prop] as vscode.Uri, term)),
+	);
 	if (id === 0) {
 		parent.children.shift();
 	} else if (id === parent.children.length - 1) {
@@ -91,6 +96,7 @@ export class TestDiscovery {
 			removeNodeFromParent(node.parent, node.id);
 		});
 		this.nodeMap.clear();
+		this.SuitesInfo.children.length = 0;
 
 		this.nodeMap.set(this.SuitesInfo.id, { node: this.SuitesInfo });
 
@@ -295,7 +301,12 @@ export class TestDiscovery {
 			const namespace = line.replace(`.${className}.${testName}`, "");
 
 			const classId = `${namespace}.${className}`;
-			let classContext = this.nodeMap.get(classId) as DerivitecSuiteContext;
+			let classContext = this.nodeMap.get(classId) as DerivitecSuiteContext | undefined;
+
+			if (classContext && classContext.node.parent !== fileSuite) {
+				// We need to replace a stale class context
+				classContext = undefined;
+			}
 
 			if (!classContext) {
 				classContext = {
@@ -368,8 +379,8 @@ export class TestDiscovery {
 				// Just detach, no removal
 				// Swap suite in place
 				this.DetachSuite(filePath);
-				const suiteIndex = parent.children.findIndex(childSuite => childSuite.sourceDll === suite.sourceDll);
-				if (suiteIndex && suiteIndex > -1) {
+				const suiteIndex = parent.children.findIndex(childSuite => childSuite.sourceDll !== 'root' && uriEquals(childSuite.sourceDll, filePath));
+				if (Number.isFinite(suiteIndex) && suiteIndex > -1) {
 					this.log.info(`replacing node "${suite.id}" in "${parentName}"`);
 					parent.children[suiteIndex] = suite;
 					inserted = true;
@@ -410,22 +421,23 @@ export class TestDiscovery {
 
 	/* remove all tests of module fn from Suite */
 	private DetachSuite(file: vscode.Uri, removeSuite: boolean = false) {
-		const filePath = file.toString();
 		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
-		this.nodeMap.forEach((value, key) => {
-			if (value.node.sourceDll === filePath) {
+		this.nodeMap.forEach((value,key) => {
+			if (value.node.sourceDll !== 'root' && uriEquals(value.node.sourceDll, file)) {
 				this.nodeMap.delete(key);
 				// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later
 				if (removeSuite) {
-					removeNodeFromParent(value.node.parent, filePath, 'sourceDll');
+					removeNodeFromParent(value.node.parent, file, 'sourceDll');
 				}
 			}
 		});
 	}
 
 	private setupWatcher(searchPattern: string) {
+		const skipGlob = this.configManager.get('skippattern');
 		const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(this.workspace.uri.fsPath, searchPattern));
 		const add = async (uri: vscode.Uri) => {
+			if (isMatch(uri.fsPath, skipGlob)) return;
 			if (typeof this.Loadingtest !== 'undefined') await this.Loadingtest.exitCode;
 			const finish = await this.testExplorer.load();
 			const file = getFileFromPath(uri.fsPath);
@@ -455,7 +467,13 @@ export class TestDiscovery {
 		};
 		watcher.onDidChange(add);
 		watcher.onDidCreate(add);
-		watcher.onDidDelete((uri) => this.DetachSuite(uri, true));
+		watcher.onDidDelete(async (uri) => {
+			if (isMatch(uri.fsPath, skipGlob)) return;
+			const finish = await this.testExplorer.load();
+			this.DetachSuite(uri, true);
+			this.output.update(`Removing tests from ${uri.fsPath.replace(this.workspace.uri.fsPath, '')}`, true);
+			finish.pass(this.SuitesInfo);
+		});
 		return watcher;
 	}
 
