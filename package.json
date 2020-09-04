@@ -8,7 +8,7 @@
     "Andrew Bridge (http://github.com/andrewbridge)"
   ],
   "publisher": "derivitec-ltd",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "license": "MIT",
   "homepage": "https://github.com/Derivitec/vscode-dotnet-adapter",
   "repository": {
@@ -65,7 +65,7 @@
       "title": ".Net Core Test Explorer",
       "properties": {
         "dotnetCoreExplorer.skippattern": {
-          "description": "Pattern to skip assemblies",
+          "description": "Pattern to skip assemblies\n\nFiles already excluded by the files.exclude or search.exclude VSCode settings will also be skipped by the test adapter (ensure you can see dll files in the file explorer)",
           "type": "string",
           "default": "**/{nunit,xunit}.*.dll",
           "scope": "resource"
