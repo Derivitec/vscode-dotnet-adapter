@@ -254,7 +254,8 @@ export class TestDiscovery {
 		const output = (await fs.readFile(testFile)).toString();
 		let lines = output.split(/[\n\r]+/);
 
-		const fileNamespace = path.parse(fileStr).base.replace(/(\.dll|\.exe)$/gi, "");
+		const parsedPath = path.parse(fileStr);
+		const fileNamespace = parsedPath.base.replace(parsedPath.ext, "");
 
 		const fileSuite: DerivitecTestSuiteInfo = {
 			type: "suite",
