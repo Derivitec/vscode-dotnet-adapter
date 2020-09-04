@@ -3,7 +3,7 @@ import OutputManager from './OutputManager';
 import TestExplorer from './TestExplorer';
 import { ConfigManager } from './ConfigManager';
 
-const getOmnisharp = () => vscode.extensions.getExtension('ms-vscode.csharp');
+const getOmnisharp = () => vscode.extensions.getExtension('ms-dotnettools.csharp');
 
 export default class CodeLensProcessor {
     private disposables: { dispose(): void }[] = [];
