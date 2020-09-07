@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2020-09-04
+### Added
+- Further detail around file discovery configuration (#41)
+
+### Fixed
+- Fix duplication during file watcher events (#41)
+- Fix test removal during file watcher events (#41)
+- Fix namespace retrieval with non-dll assemblies (#39)
+
+### Changed
+- Omnisharp extension name (#37)
+
 ## [1.4.2] - 2020-08-01
 ### Fixed
 - Fix adapter breaking error handling in edge case scenarios [(#34)](https://github.com/Derivitec/vscode-dotnet-adapter/pull/34)
