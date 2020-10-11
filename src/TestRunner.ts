@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { Log } from 'vscode-test-adapter-util';
+import * as pLimit from 'p-limit';
 
 import { DebugController } from "./DebugController"
 
@@ -14,7 +15,8 @@ import OutputManager from './OutputManager';
 const getMethodName = (fullName: string) => fullName.substr(fullName.lastIndexOf('.') + 1);
 
 export class TestRunner {
-	private Runningtest: Command | undefined;
+	private Runningtests: Command[] = [];
+	private CancellationInProgress: boolean = false;
 
     constructor(
 		private readonly workspace: vscode.WorkspaceFolder,
@@ -34,16 +36,18 @@ export class TestRunner {
     }
 
     public Cancel(): void {
-        //kill the child process for the current test run (if there is any)
-		if (this.Runningtest) {
-			this.Runningtest.dispose();
-			this.Runningtest = undefined;
-		}
+		this.CancellationInProgress = true;
+
+		//kill the child process for the current test run (if there is any)
+		this.Runningtests.forEach(runningTest => {
+			runningTest.dispose();
+		});
+
+		this.Runningtests = [];
     }
 
     private async InnerRun(tests: string[], isDebug: boolean): Promise<void> {
 		try {
-            if (this.Runningtest) return;
             this.log.info(`Running tests ${JSON.stringify(tests)}`);
 
             if (tests[0] == 'root' || tests[0].startsWith('group:')) {
@@ -51,27 +55,36 @@ export class TestRunner {
                 tests = nodeContext?.node.children.map(i => i.id);
             }
 
-            for (const id of tests) {
-                let nodeContext = this.nodeMap.get(id);
-                if (nodeContext) {
-					this.output.update(`${nodeContext.node.id} ${nodeContext.node.type} started`);
-					await this.RunTest(nodeContext.node, isDebug);
-					this.output.update(`${nodeContext.node.id} ${nodeContext.node.type} complete`);
-                }
-            }
+			const maxCpuCountSetting = this.configManager.get('maxCpuCount');
+
+			const limit = pLimit(
+				maxCpuCountSetting === 0
+					? Number.MAX_VALUE
+					: maxCpuCountSetting
+			);
+
+			await Promise.all(
+				tests.map(async id =>
+					limit(async () => {
+						const nodeContext = this.nodeMap.get(id);
+						if (nodeContext && !this.CancellationInProgress) {
+							// probably we should consider separate output channels per test run/file
+							this.output.update(`${nodeContext.node.id} ${nodeContext.node.type} started`);
+							await this.RunTest(nodeContext.node, isDebug);
+							this.output.update(`${nodeContext.node.id} ${nodeContext.node.type} complete`);
+						}
+					})
+				)
+			);
         } catch (error) {
             this.log.error(error);
-        }
+		}
+		finally {
+			this.CancellationInProgress = false;
+		}
     }
 
 	private async RunTest(node: DerivitecTestSuiteInfo | DerivitecTestInfo, isDebug: boolean): Promise<void> {
-		const debugController = new DebugController(
-			this.workspace,
-			this.configManager,
-			this.Runningtest,
-			this.log
-		);
-
 		if (node.sourceDll === 'root') throw TypeError('Cannot test root suite directly.');
 
 		const testOutputFile = node.sourceDll.with({ path: `${node.sourceDll.path}${getUid()}.trx` });
@@ -86,7 +99,7 @@ export class TestRunner {
 		args.push(`--logger:trx;LogFileName=${testOutputFile.fsPath}`);
 		this.TriggerRunningEvents(node);
 		const { print, finish } = this.output.getTestOutputHandler(node.type === 'test' ? getMethodName(node.id) : node.id);
-		this.Runningtest = new Command(
+		const runningtest = new Command(
 			'dotnet',
 			args,
 			{
@@ -97,17 +110,30 @@ export class TestRunner {
 				}
 			}
 		);
-		this.Runningtest.onStdOut(async data => {
+
+		this.Runningtests.push(runningtest);
+
+		const debugController = new DebugController(
+			this.workspace,
+			this.configManager,
+			runningtest,
+			this.log
+		);
+
+		runningtest.onStdOut(async data => {
 			if (isDebug) {
 				await debugController.onData(data);
 			}
 			print(data.toString());
 		});
-		this.Runningtest.onStdErr(data => {
+		runningtest.onStdErr(data => {
 			print(data.toString());
 		});
-		await this.Runningtest.exitCode;
-		this.Runningtest = undefined;
+		await runningtest.exitCode;
+
+		this.Runningtests =
+			this.Runningtests.filter(c => c.childProcess.pid !== runningtest.childProcess.pid);
+
 		finish();
 		await this.ParseTestResults(node, testOutputFile);
 		this.MarkSuiteComplete(node);

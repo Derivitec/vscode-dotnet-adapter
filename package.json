@@ -39,6 +39,7 @@
   "dependencies": {
     "@types/micromatch": "^4.0.1",
     "micromatch": "^4.0.2",
+    "p-limit": "^3.0.2",
     "tslib": "^1.9.3",
     "vscode-test-adapter-api": "^1.1.0",
     "vscode-test-adapter-util": "^0.5.1",
@@ -102,6 +103,13 @@
           "description": "enable CodeLens symbol integration with the C# Omnisharp VSCode extension",
           "type": "boolean",
           "default": true,
+          "scope": "resource"
+        },
+        "dotnetCoreExplorer.maxCpuCount": {
+          "description": "Enable parallel test execution. If value is zero then parallel process count is not limited",
+          "type": "integer",
+          "default": 1,
+          "minimum": 0,
           "scope": "resource"
         },
         "dotnetCoreExplorer.logpanel": {
