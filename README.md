@@ -32,6 +32,7 @@ Property                            | Description
 `dotnetCoreExplorer.skippattern`    | Assemblies to skip from searching for tests. (default: `"**/{nunit,xunit}.*.dll"`, i.e.: exclude any files starting with nunit.\*.dll or xunit.\*.dll)<br><br>Files already excluded by the `files.exclude` or `search.exclude` VSCode settings will also be skipped by the test adapter (ensure you can see dll files in the file explorer) (see [#35](https://github.com/Derivitec/vscode-dotnet-adapter/issues/35) for more detail)
 `dotnetCoreExplorer.runEnvVars`     | Additional environment variables that your project needs present while running tests (default: `{}`)
 `dotnetCoreExplorer.codeLens`       | Enable CodeLens symbol integration with the [C# Omnisharp VSCode extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) (default: `true`)
+`dotnetCoreExplorer.maxCpuCount`    | Enable parallel test execution. If value is zero then parallel process count is not limited (default: 1)
 
 
 

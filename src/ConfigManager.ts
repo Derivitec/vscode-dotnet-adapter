@@ -10,6 +10,7 @@ const schema = {
     searchpatterns: c<SearchPatterns>({ default: [],
         typecheck: (value) => typeof value === 'object' || typeof value === 'string', required: true }),
     skippattern: c<string>({ default: '' }),
+    maxCpuCount: c<number>({ default: 1 }),
 };
 
 type ConfigSchema = typeof schema;
