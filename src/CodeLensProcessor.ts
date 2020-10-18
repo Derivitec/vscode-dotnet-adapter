@@ -16,6 +16,8 @@ export default class CodeLensProcessor {
 
     private deferredSuite?: DerivitecTestSuiteInfo;
 
+    private allSymbols: vscode.SymbolInformation[] = [];
+
     constructor(
         private output: OutputManager,
         private configManager: ConfigManager,
@@ -102,7 +104,16 @@ export default class CodeLensProcessor {
             finish.pass(suite);
             return;
         }
+
         this.output.update('Processing CodeLens data');
+
+        const omnisharpConfig = vscode.workspace.getConfiguration('omnisharp');
+        const maxFindSymbolsItems = omnisharpConfig.get<number>("maxFindSymbolsItems", 1000);
+
+        if (maxFindSymbolsItems === 0) {
+            this.allSymbols = await vscode.commands.executeCommand('vscode.executeWorkspaceSymbolProvider', '') as vscode.SymbolInformation[];
+        }
+
         const stopLoader = this.output.loader();
         try {
             await Promise.all(suite.children.map(this.processItem.bind(this)));
@@ -114,13 +125,25 @@ export default class CodeLensProcessor {
             stopLoader();
             this.handleError(e);
         }
+        finally {
+            this.allSymbols = [];
+        }
+    }
+
+    private async resolveSymbolForItem(item: DerivitecTestSuiteInfo | DerivitecTestInfo): Promise<vscode.SymbolInformation | undefined> {
+        if (this.allSymbols.length > 0) {
+            return this.allSymbols?.find(s => s.name.includes(item.label));
+        }
+        else {
+            const symbols = await vscode.commands.executeCommand('vscode.executeWorkspaceSymbolProvider', item.label) as vscode.SymbolInformation[];
+            return symbols.length > 0 ? symbols[0] : undefined;
+        }
     }
 
     private async processItem(item: DerivitecTestSuiteInfo | DerivitecTestInfo) {
-        const symbols = await vscode.commands.executeCommand('vscode.executeWorkspaceSymbolProvider', item.label) as vscode.SymbolInformation[];
+        const symbol = await this.resolveSymbolForItem(item);
         this.processCancel();
-        if (symbols.length > 0) {
-            const symbol = symbols[0];
+        if (symbol) {
             item.file = symbol.location.uri.fsPath;
             item.line = symbol.location.range.start.line;
         }
