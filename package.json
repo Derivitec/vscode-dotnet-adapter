@@ -92,6 +92,12 @@
           "default": {},
           "scope": "resource"
         },
+        "dotnetCoreExplorer.settingsPath": {
+          "description": "Path to a settings file configuring the tests",
+          "type": "string",
+          "default": "",
+          "scope": "resource"
+        },
         "dotnetCoreExplorer.attachCpp": {
           "description": "Attach C++ debugging during test debugging",
           "type": "boolean",
