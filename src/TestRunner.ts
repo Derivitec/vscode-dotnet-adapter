@@ -84,6 +84,9 @@ export class TestRunner {
 			args.push(`--Tests:${node.id}`);
 		args.push('--Parallel');
 		args.push(`--logger:trx;LogFileName=${testOutputFile.fsPath}`);
+		const settingsPath = this.configManager.get('settingsPath');
+		if (settingsPath)
+			args.push(`--Settings:${settingsPath}`);
 		this.TriggerRunningEvents(node);
 		const { print, finish } = this.output.getTestOutputHandler(node.type === 'test' ? getMethodName(node.id) : node.id);
 		this.Runningtest = new Command(
