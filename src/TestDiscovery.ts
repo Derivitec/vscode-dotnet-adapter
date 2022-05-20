@@ -1,14 +1,14 @@
-import { isMatch } from 'micromatch';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { Log } from 'vscode-test-adapter-util';
-import CodeLensProcessor from './CodeLensProcessor';
 import Command from './Command';
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { Log } from 'vscode-test-adapter-util';
+import { isMatch } from 'micromatch';
+
 import { ConfigManager } from "./ConfigManager";
 import OutputManager, { Loaded } from './OutputManager';
+import CodeLensProcessor from './CodeLensProcessor';
 import TestExplorer from './TestExplorer';
-import { getFileFromPath, getPatternArray, normaliseError } from './utilities';
-
+import { getFileFromPath, normaliseError, getPatternArray } from './utilities';
 
 const fs = vscode.workspace.fs;
 
