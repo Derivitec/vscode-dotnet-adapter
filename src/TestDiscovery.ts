@@ -27,7 +27,7 @@ const removeNodeFromParent = (parent: DerivitecTestSuiteInfo['parent'], term: st
 	if (!parent) return;
 	const id = parent.children.findIndex(
 		suite => (typeof suite[prop] === 'string' && typeof term === 'string' && suite[prop] === term)
-		|| (suite[prop] instanceof vscode.Uri && term instanceof vscode.Uri && uriEquals(suite[prop] as vscode.Uri, term)),
+			|| (suite[prop] instanceof vscode.Uri && term instanceof vscode.Uri && uriEquals(suite[prop] as vscode.Uri, term)),
 	);
 	if (id === 0) {
 		parent.children.shift();
@@ -189,7 +189,7 @@ export class TestDiscovery {
 
 	private async LoadFiles(searchpatterns: string[]): Promise<vscode.Uri[]> {
 		const stopLoader = this.output.loader();
-		const skipGlob = this.configManager.get('skippattern');
+		const skipGlob = this.configManager.get('skippattern') || null;
 		let files: vscode.Uri[] = [];
 		await Promise.all(searchpatterns.map(async (pattern) => {
 			const findGlob = new vscode.RelativePattern(this.workspace.uri.fsPath, pattern);
@@ -422,7 +422,7 @@ export class TestDiscovery {
 	/* remove all tests of module fn from Suite */
 	private DetachSuite(file: vscode.Uri, removeSuite: boolean = false) {
 		// Remove all nodes related to given DLL, otherwise stale nodes live on and aren't accessible in the UI and aren't GCable
-		this.nodeMap.forEach((value,key) => {
+		this.nodeMap.forEach((value, key) => {
 			if (value.node.sourceDll !== 'root' && uriEquals(value.node.sourceDll, file)) {
 				this.nodeMap.delete(key);
 				// We can remove the suite entirely, but only do it if we actually want to retire the suite, otherwise replace it later

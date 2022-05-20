@@ -66,7 +66,10 @@
       "properties": {
         "dotnetCoreExplorer.skippattern": {
           "description": "Pattern to skip assemblies\n\nFiles already excluded by the files.exclude or search.exclude VSCode settings will also be skipped by the test adapter (ensure you can see dll files in the file explorer)",
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "default": "**/{nunit,xunit}.*.dll",
           "scope": "resource"
         },
